@@ -1,0 +1,16 @@
+[workspace]
+channels = ["conda-forge"]
+name = "polarization_ellipticity_simulations"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+start = "python main.py"
+
+[dependencies]
+zospy = ">=2.1.2,<3"
+plotly = ">=6.3.0,<7"
+scipy = ">=1.16.2,<2"
+
+[pypi-dependencies]
+kaleido = ">=1.1.0, <2"
