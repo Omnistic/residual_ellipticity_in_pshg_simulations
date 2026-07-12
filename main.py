@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from numpy import sin, cos
 import plotly.graph_objects as go
@@ -211,11 +212,11 @@ def polychromatic(oss):
     a_angles = np.linspace(0, 359, 360)
 
     hwp_angles = np.linspace(0, 90, 19)
-    hwp_angles = np.linspace(0, 90, 91)
+    # hwp_angles = np.linspace(0, 90, 91)
     # hwp_angles = np.linspace(0, 90, 4)
 
     qwp_angles = np.linspace(0, 180, 37)
-    qwp_angles = np.linspace(0, 180, 181)
+    # qwp_angles = np.linspace(0, 180, 181)
     # qwp_angles = np.linspace(0, 180, 7)
 
     monochromatic_ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
@@ -633,7 +634,7 @@ def compute_polarization_parameters(angles: np.ndarray, intensity: np.ndarray, f
     return ellipticity, e_max, alpha_max, fitted_intensity, nrmse
 
 def compute_system_parameters(primes, aggregated_intensities):
-    popt, _, _, msg, _ = curve_fit(
+    popt, pcov, _, msg, _ = curve_fit(
         general_intensity,
         primes,
         aggregated_intensities,
@@ -645,8 +646,8 @@ def compute_system_parameters(primes, aggregated_intensities):
     fit = general_intensity(primes, *popt)
     rmse = np.sqrt(np.mean((aggregated_intensities - fit) ** 2))
 
-    # print(popt, rmse)
-    # print(msg)
+    print(pcov)
+    print(msg)
 
     print(f"Intensity_0: {popt[0]:.2f}, Gamma: {popt[1]:.2f}, Delta: {np.rad2deg(popt[2]):.2f}, Theta_0: {np.rad2deg(popt[3]):.2f}, Phi_0: {np.rad2deg(popt[4]):.2f}, Alpha_0: {np.rad2deg(popt[5]):.2f}")
 
@@ -699,6 +700,44 @@ def phi_motor_for_linear_polarization(theta_motor, theta_0, phi_0, delta, initia
 
     return phi_motor_solution_1, phi_motor_solution_2
 
+def monochromatic_fit(oss):
+    hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
+    qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
+    pol_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, 'linear_polarizer_angle')[0]
+
+    hwp_offset = -3.45
+    qwp_offset = 7.59
+    pol_offset = 29.45
+
+    hwp_angles = np.linspace(0, 90, 10)
+    qwp_angles = np.linspace(0, 180, 19)
+    pol_angles = np.linspace(0, 359, 36)
+
+    alpha_prime = np.tile(pol_angles, len(hwp_angles) * len(qwp_angles))
+    phi_prime = np.tile(np.repeat(qwp_angles, len(pol_angles)), len(hwp_angles))
+    theta_prime = np.repeat(hwp_angles, len(qwp_angles) * len(pol_angles))
+
+    alpha_prime = alpha_prime.reshape(-1, 1).T
+    phi_prime = phi_prime.reshape(-1, 1).T
+    theta_prime = theta_prime.reshape(-1, 1).T
+
+    primes = np.deg2rad(np.vstack((theta_prime, phi_prime, alpha_prime)))
+
+    aggregated_intensities = []
+
+    start_time = time.time()
+    for ha in hwp_angles:
+        hwp_angle.Thickness = ha + hwp_offset
+        print(ha)
+        print(f"Time taken: {time.time() - start_time:.2f} seconds")
+        for qa in qwp_angles:
+            qwp_angle.Thickness = qa + qwp_offset
+            for pa in pol_angles:
+                pol_angle.Thickness = pa + pol_offset
+                aggregated_intensities.append(oss.MFE.GetOperandValue(zp.constants.Editors.MFE.MeritOperandType.CODA, 0, 1, 0, 0, 0, 0, 0, 0))
+
+    compute_system_parameters(primes, aggregated_intensities)
+
 if __name__ == '__main__':
     zos = zp.ZOS()
     oss = zos.connect('extension')
@@ -706,5 +745,7 @@ if __name__ == '__main__':
     oss.TheApplication.ShowChangesInUI = False
 
     # monochromatic(oss)
-    polychromatic(oss)
+    # polychromatic(oss)
     # vary_dichroic_retardance(oss)
+
+    monochromatic_fit(oss)
