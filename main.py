@@ -727,13 +727,13 @@ def monochromatic_fit(oss):
 
     start_time = time.time()
     for ha in hwp_angles:
-        hwp_angle.Thickness = ha + hwp_offset
+        hwp_angle.Thickness = ha - hwp_offset
         print(ha)
         print(f"Time taken: {time.time() - start_time:.2f} seconds")
         for qa in qwp_angles:
-            qwp_angle.Thickness = qa + qwp_offset
+            qwp_angle.Thickness = qa - qwp_offset
             for pa in pol_angles:
-                pol_angle.Thickness = pa + pol_offset
+                pol_angle.Thickness = pa - pol_offset
                 aggregated_intensities.append(oss.MFE.GetOperandValue(zp.constants.Editors.MFE.MeritOperandType.CODA, 0, 1, 0, 0, 0, 0, 0, 0))
 
     compute_system_parameters(primes, aggregated_intensities)
