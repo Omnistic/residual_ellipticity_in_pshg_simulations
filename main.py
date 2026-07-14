@@ -1,5 +1,3 @@
-from random import seed
-
 import yaml
 from tqdm import tqdm
 from dataclasses import dataclass
@@ -737,6 +735,8 @@ class SimulationSingleMapResults:
     true_phi_0: float
     true_alpha_0: float
     true_dic_retardance: float
+    theta_0_unwrapped: bool = False
+    alpha_0_unwrapped: bool = False
 
 def simulation_single_map(oss, params, sim_id=1):
     hqp_rng = np.random.default_rng(params["hqp_rng_seed"])
@@ -794,6 +794,21 @@ def simulation_multi_map(oss, params, sim_id=1, n_runs=1):
 
     for _ in tqdm(range(n_runs), desc="Runs", position=0, leave=False):
         results = simulation_single_map(oss, params, sim_id=sim_id)
+
+        if abs(results.true_theta_0 - results.theta_0) > 45:
+            results.theta_0_unwrapped = True
+            if results.true_theta_0 > results.theta_0:
+                results.theta_0 += 90
+            else:
+                results.theta_0 -= 90
+
+        if abs(results.true_alpha_0 - results.alpha_0) > 90:
+            results.alpha_0_unwrapped = True
+            if results.true_alpha_0 > results.alpha_0:
+                results.alpha_0 += 180
+            else:
+                results.alpha_0 -= 180
+
         results_list.append(results)
 
     return results_list
@@ -842,11 +857,11 @@ def print_single_map_results(results: SimulationSingleMapResults):
             return f"{v:<{w}.{precision}f}"
         return f"{str(v):<{w}}"
 
-    headers = ["", "I_0", "Gamma", "Delta", "Dichroic Retardance", "Theta_0", "Phi_0", "Alpha_0"]
-    data = ["Fitted", results.intensity_0, results.gamma, results.delta, "", results.theta_0, results.phi_0, results.alpha_0]
-    ground_truth = ["Ground Truth", "", "", "", results.true_dic_retardance, results.true_theta_0, results.true_phi_0, results.true_alpha_0]
+    headers = ["", "I_0", "gamma", "delta", "Dichroic Retardance", "theta_0", "phi_0", "alpha_0", "Theta Unwrapped?", "Alpha Unwrapped?"]
+    data = ["Fitted", results.intensity_0, results.gamma, results.delta, "", results.theta_0, results.phi_0, results.alpha_0, results.theta_0_unwrapped, results.alpha_0_unwrapped]
+    ground_truth = ["Ground Truth", "", "", "", results.true_dic_retardance, results.true_theta_0, results.true_phi_0, results.true_alpha_0, "", ""]
 
-    w = 20
+    w = 25
     precision = 6
     n_cols = len(headers)
     table_width = n_cols * w + (n_cols - 1)
@@ -861,13 +876,34 @@ def print_single_map_results(results: SimulationSingleMapResults):
     print("")
 
 def print_multi_map_results(results_list):
-    I_0_list = [results.intensity_0 for results in results_list]
-    Gamma_list = [results.gamma for results in results_list]
-    Delta_list = [results.delta for results in results_list]
+    def fmt_cell(v, w, precision):
+        if isinstance(v, (int, float)):
+            return f"{v:<{w}.{precision}f}"
+        return f"{str(v):<{w}}"
+    
+    intensity_0_list = [results.intensity_0 for results in results_list]
+    gamma_list = [results.gamma for results in results_list]
+    delta_list = [results.delta for results in results_list]
 
-    print(f"Average I_0: {np.mean(I_0_list):.6f} ± {np.std(I_0_list):.6f}")
-    print(f"Average Gamma: {np.mean(Gamma_list):.6f} ± {np.std(Gamma_list):.6f}")
-    print(f"Average Delta: {np.mean(Delta_list):.6f} ± {np.std(Delta_list):.6f}")
+    theta_0_error_list = [results.theta_0 - results.true_theta_0 for results in results_list]
+    phi_0_error_list = [results.phi_0 - results.true_phi_0 for results in results_list]
+    alpha_0_error_list = [results.alpha_0 - results.true_alpha_0 for results in results_list]
+
+    headers = ["", "I_0 (mean ± std)", "Gamma (mean ± std)", "Delta (mean ± std)", "Dichroic Retardance", "Theta_0 Error (mean ± std)", "Phi_0 Error (mean ± std)", "Alpha_0 Error (mean ± std)"]
+    data = ["Results", f"{np.mean(intensity_0_list):.6f} ± {np.std(intensity_0_list):.6f}", f"{np.mean(gamma_list):.6f} ± {np.std(gamma_list):.6f}", f"{np.mean(delta_list):.6f} ± {np.std(delta_list):.6f}", f"{results_list[0].true_dic_retardance:.6f}", f"{np.mean(theta_0_error_list):.6f} ± {np.std(theta_0_error_list):.6f}", f"{np.mean(phi_0_error_list):.6f} ± {np.std(phi_0_error_list):.6f}", f"{np.mean(alpha_0_error_list):.6f} ± {np.std(alpha_0_error_list):.6f}"]
+
+    w = 25
+    precision = 6
+    n_cols = len(headers)
+    table_width = n_cols * w + (n_cols - 1)
+
+    title = f" Simulation: {results_list[0].title} (n_runs={len(results_list)})"
+    print(f"{title:=^{table_width}}")
+    print("")
+    print("|".join(f"{h:<{w}}" for h in headers))
+    print("+".join("-" * w for _ in range(n_cols)))
+    print("|".join(fmt_cell(v, w, precision) for v in data))
+    print("")
 
 def general_intensity(primes, intensity_0, gamma, delta, theta_0, phi_0, alpha_0):
     theta_prime, phi_prime, alpha_prime = primes
@@ -928,34 +964,13 @@ if __name__ == "__main__":
     oss = connect_opticstudio("revised_monochromatic.zmx")
     params = load_parameters(oss)
 
-    # five_mirrors_ideal_waveplates_results = simulation_multi_map(
-    #     oss,
-    #     params,
-    #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
-    #     n_runs=3,
-    # )
-    # print_single_map_results(five_mirrors_ideal_waveplates_results[0])
-
-    # five_mirrors_ideal_waveplates_results = simulation_single_map(
-    #     oss,
-    #     params,
-    #     sim_id=params["sim"]["five_mirrors_ideal_waveplates"],
-    # )
-    # print_single_map_results(five_mirrors_ideal_waveplates_results)
-
-    # five_mirrors_and_dichroic_ideal_waveplates_results = simulation_single_map(
-    #     oss,
-    #     params,
-    #     sim_id=params["sim"]["five_mirrors_and_dichroic_ideal_waveplates"],
-    # )
-    # print_single_map_results(five_mirrors_and_dichroic_ideal_waveplates_results)
-
-    # five_mirrors_and_dichroic_real_waveplates_results = simulation_single_map(
-    #     oss,
-    #     params,
-    #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
-    # )
-    # print_single_map_results(five_mirrors_and_dichroic_real_waveplates_results)
+    five_mirrors_and_dichroic_real_waveplates = simulation_multi_map(
+        oss,
+        params,
+        sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
+        n_runs=10,
+    )
+    print_multi_map_results(five_mirrors_and_dichroic_real_waveplates)
 
     oss.save()
 
