@@ -11,6 +11,8 @@ start = "python main.py"
 zospy = ">=2.1.2,<3"
 plotly = ">=6.3.0,<7"
 scipy = ">=1.16.2,<2"
+tqdm = ">=4.68.4,<5"
+pyyaml = ">=6.0.3,<7"
 
 [pypi-dependencies]
 kaleido = ">=1.1.0, <2"

@@ -1,0 +1,19 @@
+rng_seed: null
+sim:
+  five_mirrors_ideal_waveplates: 1
+  five_mirrors_and_dichroic_ideal_waveplates: 2
+  five_mirrors_and_dichroic_real_waveplates: 3
+sim_desc:
+  1: "Five mirrors, ideal waveplates"
+  2: "Five mirrors, dichroic, ideal waveplates"
+  3: "Five mirrors, dichroic, real waveplates"
+hqp_size: [10, 19, 18]
+hwp:
+  angle_comment: "hwp_angle"
+qwp:
+  angle_comment: "qwp_angle"
+dic:
+  angle_comment: "dichroic_angle"
+  retardance_comment: "dichroic_retardance"
+pol:
+  angle_comment: "linear_polarizer_angle"

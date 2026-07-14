@@ -1,5 +1,5 @@
-# Figures
-*.pdf
+# Numpy files
+*.npy
 
 # OpticStudio Files
 *.zmx
