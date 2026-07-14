@@ -755,7 +755,8 @@ def simulation_single_map(oss, params, sim_id=1):
 
     # true_dic_retardance = 20
 
-    params["dic"]["retardance_surface"].Thickness = true_dic_retardance
+    params["dic"]["retardance_mc_operand"].GetCellAt(sim_id).DoubleValue = true_dic_retardance
+    # params["dic"]["retardance_surface"].Thickness = true_dic_retardance
 
     hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
 
@@ -821,8 +822,7 @@ def load_parameters(oss):
 
     params["hwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["angle_comment"])[0]
     params["qwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["angle_comment"])[0]
-    params["dic"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["dic"]["angle_comment"])[0]
-    params["dic"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["dic"]["retardance_comment"])[0]
+    params["dic"]["retardance_mc_operand"] = oss.MCE.GetOperandAt(params["dic"]["retardance_mc_operand_row_id"])
     params["pol"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["pol"]["angle_comment"])[0]
 
     return params
@@ -863,7 +863,7 @@ def print_single_map_results(results: SimulationSingleMapResults):
     data = ["Fitted", results.intensity_0, results.gamma, results.delta, "", results.theta_0, results.phi_0, results.alpha_0, results.theta_0_unwrapped, results.alpha_0_unwrapped]
     ground_truth = ["Ground Truth", "", "", "", results.true_dic_retardance, results.true_theta_0, results.true_phi_0, results.true_alpha_0, "", ""]
 
-    w = 30
+    w = 20
     precision = 6
     n_cols = len(headers)
     table_width = n_cols * w + (n_cols - 1)
@@ -877,7 +877,7 @@ def print_single_map_results(results: SimulationSingleMapResults):
     print("|".join(fmt_cell(v, w, precision) for v in ground_truth))
     print("")
 
-def print_multi_map_results(results_list):
+def print_multi_map_results(results_list, print_single_runs=False):
     def fmt_cell(v, w, precision):
         if isinstance(v, (int, float)):
             return f"{v:<{w}.{precision}f}"
@@ -906,6 +906,10 @@ def print_multi_map_results(results_list):
     print("+".join("-" * w for _ in range(n_cols)))
     print("|".join(fmt_cell(v, w, precision) for v in data))
     print("")
+
+    if print_single_runs:
+        for results in results_list:
+            print_single_map_results(results)
 
 def general_intensity(primes, intensity_0, gamma, delta, theta_0, phi_0, alpha_0):
     theta_prime, phi_prime, alpha_prime = primes
@@ -966,13 +970,13 @@ if __name__ == "__main__":
     oss = connect_opticstudio("revised_monochromatic.zmx")
     params = load_parameters(oss)
 
-    five_mirrors_and_dichroic_real_waveplates = simulation_multi_map(
+    sim = simulation_multi_map(
         oss,
         params,
         sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
         n_runs=10,
     )
-    print_multi_map_results(five_mirrors_and_dichroic_real_waveplates)
+    print_multi_map_results(sim, print_single_runs=False)
 
     oss.save()
 
