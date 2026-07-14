@@ -739,16 +739,19 @@ class SimulationSingleMapResults:
     true_dic_retardance: float
 
 def simulation_single_map(oss, params, sim_id=1):
-    rng = np.random.default_rng(params["rng_seed"])
+    hqp_rng = np.random.default_rng(params["hqp_rng_seed"])
+    dic_rng = np.random.default_rng(params["dic_rng_seed"])
+    fit_rng = np.random.default_rng(params["fit_rng_seed"])
+
     oss.MCE.SetCurrentConfiguration(sim_id)
 
-    true_theta_0 = rng.uniform(0, 90)
-    true_phi_0 = rng.uniform(0, 90)
-    true_alpha_0 = rng.uniform(0, 180)
+    true_theta_0 = hqp_rng.uniform(0, 90)
+    true_phi_0 = hqp_rng.uniform(0, 90)
+    true_alpha_0 = hqp_rng.uniform(0, 180)
     if sim_id == 1:
         true_dic_retardance = 0
     else:    
-        true_dic_retardance = rng.uniform(-10, 20)
+        true_dic_retardance = dic_rng.uniform(-10, 20)
 
     params["dic"]["retardance_surface"].Thickness = true_dic_retardance
 
@@ -756,7 +759,7 @@ def simulation_single_map(oss, params, sim_id=1):
 
     aggregated_intensities = []
     total_iters = len(hwp_angles) * len(qwp_angles) * len(pol_angles)
-    with tqdm(total=total_iters, leave=False, desc=params["sim_desc"][sim_id]) as pbar:
+    with tqdm(total=total_iters, leave=False, desc=params["sim_desc"][sim_id], position=1) as pbar:
         for ha in hwp_angles:
             params["hwp"]["angle_surface"].Thickness = ha - true_theta_0
             for qa in qwp_angles:
@@ -768,7 +771,7 @@ def simulation_single_map(oss, params, sim_id=1):
                     )
                     pbar.update(1)
 
-    intensity_0, gamma, delta, theta_0, phi_0, alpha_0 = compute_system_parameters(primes, aggregated_intensities, rng=rng)
+    intensity_0, gamma, delta, theta_0, phi_0, alpha_0 = compute_system_parameters(primes, aggregated_intensities, rng=fit_rng)
 
     results = SimulationSingleMapResults(
         title=params["sim_desc"][sim_id],
@@ -789,10 +792,10 @@ def simulation_single_map(oss, params, sim_id=1):
 def simulation_multi_map(oss, params, sim_id=1, n_runs=1):
     results_list = []
 
-    for _ in range(n_runs):
+    for _ in tqdm(range(n_runs), desc="Runs", position=0, leave=False):
         results = simulation_single_map(oss, params, sim_id=sim_id)
         results_list.append(results)
-    
+
     return results_list
 
 def load_parameters(oss):
@@ -857,6 +860,15 @@ def print_single_map_results(results: SimulationSingleMapResults):
     print("|".join(fmt_cell(v, w, precision) for v in ground_truth))
     print("")
 
+def print_multi_map_results(results_list):
+    I_0_list = [results.intensity_0 for results in results_list]
+    Gamma_list = [results.gamma for results in results_list]
+    Delta_list = [results.delta for results in results_list]
+
+    print(f"Average I_0: {np.mean(I_0_list):.6f} ± {np.std(I_0_list):.6f}")
+    print(f"Average Gamma: {np.mean(Gamma_list):.6f} ± {np.std(Gamma_list):.6f}")
+    print(f"Average Delta: {np.mean(Delta_list):.6f} ± {np.std(Delta_list):.6f}")
+
 def general_intensity(primes, intensity_0, gamma, delta, theta_0, phi_0, alpha_0):
     theta_prime, phi_prime, alpha_prime = primes
 
@@ -916,13 +928,13 @@ if __name__ == "__main__":
     oss = connect_opticstudio("revised_monochromatic.zmx")
     params = load_parameters(oss)
 
-    five_mirrors_ideal_waveplates_results = simulation_multi_map(
-        oss,
-        params,
-        sim_id=params["sim"]["five_mirrors_and_dichroic_ideal_waveplates"],
-        n_runs=1,
-    )
-    print_single_map_results(five_mirrors_ideal_waveplates_results[0])
+    # five_mirrors_ideal_waveplates_results = simulation_multi_map(
+    #     oss,
+    #     params,
+    #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
+    #     n_runs=3,
+    # )
+    # print_single_map_results(five_mirrors_ideal_waveplates_results[0])
 
     # five_mirrors_ideal_waveplates_results = simulation_single_map(
     #     oss,
@@ -931,14 +943,14 @@ if __name__ == "__main__":
     # )
     # print_single_map_results(five_mirrors_ideal_waveplates_results)
 
-    # five_mirrors_and_dichroic_ideal_waveplates_results = revised_simulation_single_map(
+    # five_mirrors_and_dichroic_ideal_waveplates_results = simulation_single_map(
     #     oss,
     #     params,
     #     sim_id=params["sim"]["five_mirrors_and_dichroic_ideal_waveplates"],
     # )
     # print_single_map_results(five_mirrors_and_dichroic_ideal_waveplates_results)
 
-    # five_mirrors_and_dichroic_real_waveplates_results = revised_simulation_single_map(
+    # five_mirrors_and_dichroic_real_waveplates_results = simulation_single_map(
     #     oss,
     #     params,
     #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
