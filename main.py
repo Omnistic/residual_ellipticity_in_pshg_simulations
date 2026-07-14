@@ -753,6 +753,8 @@ def simulation_single_map(oss, params, sim_id=1):
     else:    
         true_dic_retardance = dic_rng.uniform(-10, 20)
 
+    # true_dic_retardance = 20
+
     params["dic"]["retardance_surface"].Thickness = true_dic_retardance
 
     hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
@@ -861,7 +863,7 @@ def print_single_map_results(results: SimulationSingleMapResults):
     data = ["Fitted", results.intensity_0, results.gamma, results.delta, "", results.theta_0, results.phi_0, results.alpha_0, results.theta_0_unwrapped, results.alpha_0_unwrapped]
     ground_truth = ["Ground Truth", "", "", "", results.true_dic_retardance, results.true_theta_0, results.true_phi_0, results.true_alpha_0, "", ""]
 
-    w = 25
+    w = 30
     precision = 6
     n_cols = len(headers)
     table_width = n_cols * w + (n_cols - 1)
@@ -892,7 +894,7 @@ def print_multi_map_results(results_list):
     headers = ["", "I_0 (mean ± std)", "Gamma (mean ± std)", "Delta (mean ± std)", "Dichroic Retardance", "Theta_0 Error (mean ± std)", "Phi_0 Error (mean ± std)", "Alpha_0 Error (mean ± std)"]
     data = ["Results", f"{np.mean(intensity_0_list):.6f} ± {np.std(intensity_0_list):.6f}", f"{np.mean(gamma_list):.6f} ± {np.std(gamma_list):.6f}", f"{np.mean(delta_list):.6f} ± {np.std(delta_list):.6f}", f"{results_list[0].true_dic_retardance:.6f}", f"{np.mean(theta_0_error_list):.6f} ± {np.std(theta_0_error_list):.6f}", f"{np.mean(phi_0_error_list):.6f} ± {np.std(phi_0_error_list):.6f}", f"{np.mean(alpha_0_error_list):.6f} ± {np.std(alpha_0_error_list):.6f}"]
 
-    w = 25
+    w = 30
     precision = 6
     n_cols = len(headers)
     table_width = n_cols * w + (n_cols - 1)

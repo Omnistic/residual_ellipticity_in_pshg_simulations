@@ -62,3 +62,18 @@ all angles `theta_0, phi_0, alpha_0` are exactly fitted
 
 #### Main result 3
 `phi_0` is fitted down to the second decimal
+
+# Simulation 4
+5x Protected Silver Mirrors + Dichroic & Real Waveplates (HWP=185.7492°|QWP=92.8728°)
+## Parameters
+- Dichroic retardance fixed (hard-coded in line 756): **20.000000°**
+## Results (mean ± std)
+- `I_0 = 0.842303 ± 0.001006`
+- `gamma = 0.996529 ± 0.001281 `
+- `delta = -9.971424 ± 0.647908`
+- `theta_0_error = -0.114494 ± 2.235158`
+- `phi_0_error = -0.069634 ± 0.069760`
+- `alpha_0_error = -0.112006 ± 4.603963`
+
+#### Main result 0
+When running [Simulation 3](#simulation-3) multiple times, we realized that the smaller `delta`, the more incertain was the error on `theta_0` and `alpha_0`. Assuming the five mirrors give a retardance of about -32°, a dichroic retardance of 20° gives a delta about -12°, which is what we had previously measured on our Leica system. In fact, it can be shown that if `I_0` and `gamma` are 1, and `delta` is 0, there is an infinite number of combinations possible for `theta_0` and `alpha_0`.
