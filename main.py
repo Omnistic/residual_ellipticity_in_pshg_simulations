@@ -738,7 +738,7 @@ class SimulationSingleMapResults:
     theta_0_unwrapped: bool = False
     alpha_0_unwrapped: bool = False
 
-def simulation_single_map(oss, params, sim_id=1):
+def simulation_single_map_fit(oss, params, sim_id=1):
     hqp_rng = np.random.default_rng(params["hqp_rng_seed"])
     dic_rng = np.random.default_rng(params["dic_rng_seed"])
     fit_rng = np.random.default_rng(params["fit_rng_seed"])
@@ -792,11 +792,11 @@ def simulation_single_map(oss, params, sim_id=1):
 
     return results
 
-def simulation_multi_map(oss, params, sim_id=1, n_runs=1):
+def simulation_multi_map_fit(oss, params, sim_id=1, n_runs=1):
     results_list = []
 
     for _ in tqdm(range(n_runs), desc="Runs", position=0, leave=False):
-        results = simulation_single_map(oss, params, sim_id=sim_id)
+        results = simulation_single_map_fit(oss, params, sim_id=sim_id)
 
         if abs(results.true_theta_0 - results.theta_0) > 45:
             results.theta_0_unwrapped = True
@@ -853,7 +853,7 @@ def create_angle_arrays(hqp_size):
 
     return hwp_angles, qwp_angles, pol_angles, primes
 
-def print_single_map_results(results: SimulationSingleMapResults):
+def print_single_map_fit_results(results: SimulationSingleMapResults):
     def fmt_cell(v, w, precision):
         if isinstance(v, (int, float)):
             return f"{v:<{w}.{precision}f}"
@@ -877,7 +877,7 @@ def print_single_map_results(results: SimulationSingleMapResults):
     print("|".join(fmt_cell(v, w, precision) for v in ground_truth))
     print("")
 
-def print_multi_map_results(results_list, print_single_runs=False):
+def print_multi_map_fit_results(results_list, print_single_runs=False):
     def fmt_cell(v, w, precision):
         if isinstance(v, (int, float)):
             return f"{v:<{w}.{precision}f}"
@@ -909,7 +909,7 @@ def print_multi_map_results(results_list, print_single_runs=False):
 
     if print_single_runs:
         for results in results_list:
-            print_single_map_results(results)
+            print_single_map_fit_results(results)
 
 def general_intensity(primes, intensity_0, gamma, delta, theta_0, phi_0, alpha_0):
     theta_prime, phi_prime, alpha_prime = primes
@@ -966,17 +966,21 @@ def compute_system_parameters(primes, aggregated_intensities, n_restarts=15, rng
 
     return intensity_0, gamma, delta, theta_0, phi_0, alpha_0
 
+def figure_2b():
+    None
+
 if __name__ == "__main__":
     oss = connect_opticstudio("revised_monochromatic.zmx")
     params = load_parameters(oss)
 
-    sim = simulation_multi_map(
+    # === Simulation 1-4 : Fit Variations === #
+    sim = simulation_multi_map_fit(
         oss,
         params,
         sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
         n_runs=10,
     )
-    print_multi_map_results(sim, print_single_runs=False)
+    print_multi_map_fit_results(sim, print_single_runs=False)
 
     oss.save()
 

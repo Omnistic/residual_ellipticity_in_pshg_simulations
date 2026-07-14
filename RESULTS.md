@@ -66,7 +66,7 @@ all angles `theta_0, phi_0, alpha_0` are exactly fitted
 # Simulation 4
 5x Protected Silver Mirrors + Dichroic & Real Waveplates (HWP=185.7492°|QWP=92.8728°)
 ## Parameters
-- Dichroic retardance fixed (hard-coded in line 756): **20.000000°**
+- Dichroic retardance fixed (hard-coded in `simulation_single_map_fit`): **20.000000°**
 ## Results (mean ± std)
 - `I_0 = 0.842303 ± 0.001006`
 - `gamma = 0.996529 ± 0.001281 `
