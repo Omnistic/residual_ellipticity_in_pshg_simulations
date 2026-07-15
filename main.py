@@ -1,4 +1,4 @@
-import yaml
+import os, yaml
 from tqdm import tqdm
 from dataclasses import dataclass
 import numpy as np
@@ -607,35 +607,35 @@ def make_polychromatic(oss):
     fig.show()
     fig.write_image(r"bandwidth_and_spectral_dependance.pdf", width=1000, height=400)
 
-def polarimeter_intensity(alpha: float, alpha_max: float, k: float, e_min: float) -> float:
-    e_max = e_min + k**2
-    return e_max**2 * cos(alpha_max - alpha)**2 + e_min**2 * sin(alpha_max - alpha)**2
+# def polarimeter_intensity(alpha: float, alpha_max: float, k: float, e_min: float) -> float:
+#     e_max = e_min + k**2
+#     return e_max**2 * cos(alpha_max - alpha)**2 + e_min**2 * sin(alpha_max - alpha)**2
 
-def compute_polarization_parameters(angles: np.ndarray, intensity: np.ndarray, fit_factor: float = 1E4, max_intensity: float = 10):
-    scaled_intensity = intensity * fit_factor
-    max_scaled_intensity = max_intensity * fit_factor
+# def compute_polarization_parameters(angles: np.ndarray, intensity: np.ndarray, fit_factor: float = 1E4, max_intensity: float = 10):
+#     scaled_intensity = intensity * fit_factor
+#     max_scaled_intensity = max_intensity * fit_factor
 
-    try:
-        popt, _ = curve_fit(
-            polarimeter_intensity, 
-            angles, 
-            scaled_intensity, 
-            bounds=((0, 0, 0), (np.pi, max_scaled_intensity, max_scaled_intensity))
-        )
-    except RuntimeError:
-        return -1, -1, None, np.inf
+#     try:
+#         popt, _ = curve_fit(
+#             polarimeter_intensity, 
+#             angles, 
+#             scaled_intensity, 
+#             bounds=((0, 0, 0), (np.pi, max_scaled_intensity, max_scaled_intensity))
+#         )
+#     except RuntimeError:
+#         return -1, -1, None, np.inf
 
-    alpha_max, k, e_min = popt
+#     alpha_max, k, e_min = popt
 
-    e_max = k**2 + e_min
-    ellipticity = e_min / e_max
+#     e_max = k**2 + e_min
+#     ellipticity = e_min / e_max
 
-    fitted_intensity = polarimeter_intensity(angles, *popt) / fit_factor
+#     fitted_intensity = polarimeter_intensity(angles, *popt) / fit_factor
 
-    rmse = np.sqrt(np.mean((intensity - fitted_intensity) ** 2))
-    nrmse = rmse / np.mean(intensity)
+#     rmse = np.sqrt(np.mean((intensity - fitted_intensity) ** 2))
+#     nrmse = rmse / np.mean(intensity)
 
-    return ellipticity, e_max, alpha_max, fitted_intensity, nrmse
+#     return ellipticity, e_max, alpha_max, fitted_intensity, nrmse
 
 # def compute_system_parameters(primes, aggregated_intensities):
 #     popt, pcov, _, msg, _ = curve_fit(
@@ -756,7 +756,6 @@ def simulation_single_map_fit(oss, params, sim_id=1):
     # true_dic_retardance = 20
 
     params["dic"]["retardance_mc_operand"].GetCellAt(sim_id).DoubleValue = true_dic_retardance
-    # params["dic"]["retardance_surface"].Thickness = true_dic_retardance
 
     hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
 
@@ -816,12 +815,14 @@ def simulation_multi_map_fit(oss, params, sim_id=1, n_runs=1):
 
     return results_list
 
-def load_parameters(oss):
-    with open("params.yaml") as f:
+def load_parameters(params_file, oss):
+    with open(params_file) as f:
         params = yaml.safe_load(f)
 
     params["hwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["angle_comment"])[0]
+    params["hwp"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["retardance_comment"])[0]
     params["qwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["angle_comment"])[0]
+    params["qwp"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["retardance_comment"])[0]
     params["dic"]["retardance_mc_operand"] = oss.MCE.GetOperandAt(params["dic"]["retardance_mc_operand_row_id"])
     params["pol"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["pol"]["angle_comment"])[0]
 
@@ -966,21 +967,232 @@ def compute_system_parameters(primes, aggregated_intensities, n_restarts=15, rng
 
     return intensity_0, gamma, delta, theta_0, phi_0, alpha_0
 
-def figure_2b():
-    None
+def polarization_analyzer_intensity(alpha, alpha_max, k, e_min):
+    e_max = e_min + k**2
+    return e_max**2 * cos(alpha_max - alpha)**2 + e_min**2 * sin(alpha_max - alpha)**2
+
+def compute_polarization_parameters(angles, intensity, fit_factor=10000, max_intensity=10):
+    scaled_intensity = intensity * fit_factor
+    max_scaled_intensity = max_intensity * fit_factor
+
+    popt, _ = curve_fit(
+        polarization_analyzer_intensity, 
+        angles, 
+        scaled_intensity, 
+        bounds=((0, 0, 0), (np.pi, max_scaled_intensity, max_scaled_intensity))
+    )
+
+    alpha_max, k, e_min = popt
+
+    e_max = k**2 + e_min
+    ellipticity = e_min / e_max
+    e_max /= fit_factor**0.5
+
+    fitted_intensity = polarization_analyzer_intensity(angles, *popt) / fit_factor
+
+    rmse = np.sqrt(np.mean((intensity - fitted_intensity) ** 2))
+    nrmse = rmse / np.mean(intensity)
+
+    return ellipticity, e_max, alpha_max, fitted_intensity, nrmse
+
+def half_waveplate_scan(oss, params, desc, hwp_angles, pol_angles, intensities_filename, overwrite_intensities=True, optimize=False):
+    if optimize:
+        local_opt = oss.Tools.OpenLocalOptimization()
+
+    if overwrite_intensities or not os.path.exists(intensities_filename):
+        polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles)))
+        total_iters = len(hwp_angles) * len(pol_angles)
+        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+            for ha_ind, ha in enumerate(hwp_angles):
+                params["hwp"]["angle_surface"].Thickness = ha
+                for pa_ind, pa in enumerate(pol_angles):
+                    params["pol"]["angle_surface"].Thickness = pa
+                    if optimize:
+                        local_opt.RunAndWaitForCompletion()
+                    polarization_analyzer_intensities[pa_ind, ha_ind] = oss.MFE.GetOperandValue(zp.constants.Editors.MFE.MeritOperandType.CODA, 0, 1, 0, 0, 0, 0, 0, 0)
+                    pbar.update(1)
+        np.save(intensities_filename, polarization_analyzer_intensities)
+    else:
+        polarization_analyzer_intensities = np.load(intensities_filename)
+
+    if optimize:
+        local_opt.Close()
+
+    ellipticity = []
+    alpha_max = []
+    for ha_ind, ha in enumerate(hwp_angles):
+        el, _, am, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind])
+        ellipticity.append(el)
+        alpha_max.append(np.rad2deg(am))
+
+    inds = np.argsort(alpha_max)
+    alpha_max = np.array(alpha_max)[inds]
+    ellipticity = np.array(ellipticity)[inds]
+
+    return alpha_max, ellipticity
+
+def figure_2b(oss, params, overwrite_intensities=True):
+    hwp_angles = np.linspace(0, -90, params["hwp_only"]["size"])
+    pol_angles = np.linspace(0, 359, params["polarizer"]["size"])
+
+    oss.MCE.SetCurrentConfiguration(params["hwp_only"]["ideal_config"])
+    hwp_only_ideal_wp_intensities_filepath = "hwp_only_ideal_wp_intensities.npy"
+    hwp_only_ideal_wp_alpha_max, hwp_only_ideal_wp_ellipticity = half_waveplate_scan(
+        oss,
+        params,
+        params["hwp_only"]["ideal_desc"],
+        hwp_angles,
+        pol_angles,
+        hwp_only_ideal_wp_intensities_filepath,
+        overwrite_intensities=overwrite_intensities,
+        optimize=False,
+    )
+
+    oss.MCE.SetCurrentConfiguration(params["hwp_only"]["real_config"])
+    hwp_only_real_wp_intensities_filepath = "hwp_only_real_wp_intensities.npy"
+    hwp_only_real_wp_alpha_max, hwp_only_real_wp_ellipticity = half_waveplate_scan(
+        oss,
+        params,
+        params["hwp_only"]["real_desc"],
+        hwp_angles,
+        pol_angles,
+        hwp_only_real_wp_intensities_filepath,
+        overwrite_intensities=overwrite_intensities,
+        optimize=False,
+    )
+
+    oss.MCE.SetCurrentConfiguration(params["hwp_qwp"]["config"])
+    hwp_qwp_real_wp_intensities_filepath = "hwp_qwp_real_wp_intensities.npy"
+    hwp_qwp_real_wp_alpha_max, hwp_qwp_real_wp_ellipticity = half_waveplate_scan(
+        oss,
+        params,
+        params["hwp_qwp"]["desc"],
+        hwp_angles,
+        pol_angles,
+        hwp_qwp_real_wp_intensities_filepath,
+        overwrite_intensities=overwrite_intensities,
+        optimize=True,
+    )
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=hwp_only_ideal_wp_alpha_max,
+        y=hwp_only_ideal_wp_ellipticity,
+        mode="lines",
+        name="0.5𝜆",
+        line=dict(
+            width=2,
+            color=COLORS[6]+", 1)"
+        )
+    ))
+    fig.add_trace(go.Scatter(
+        x=hwp_only_real_wp_alpha_max,
+        y=hwp_only_real_wp_ellipticity,
+        mode="lines",
+        name="0.516𝜆",
+        line=dict(
+            width=2,
+            color=COLORS[2]+", 1)"
+        )
+    ))
+    fig.add_trace(go.Scatter(
+        x=hwp_qwp_real_wp_alpha_max,
+        y=hwp_qwp_real_wp_ellipticity,
+        mode="lines",
+        name="0.516𝜆 + 0.258𝜆",
+        line=dict(
+            width=2,
+            color=COLORS[1]+", 1)"
+        )
+    ))
+    fig.add_trace(go.Scatter(
+        x=[0, 180],
+        y=[np.amax(hwp_only_ideal_wp_ellipticity), np.amax(hwp_only_ideal_wp_ellipticity)],
+        mode="lines",
+        line=dict(
+            width=3,
+            dash="dash",
+            color=COLORS[6]+", 0.3)"
+        ),
+        showlegend=False
+    ))
+    fig.add_annotation(
+        x=135,
+        y=0.001,
+        axref="x",
+        ayref="y",
+        ax=140,
+        ay=0.04,
+        arrowcolor=COLORS[1]+", 1)",
+        arrowsize=1,
+        arrowwidth=4,
+        arrowhead=1,
+    )
+    fig.update_xaxes(
+        title_text="Relative Polarization Angle (deg)",
+        title_font=dict(size=20),
+        showgrid=True,
+        automargin=False,
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 45, 90, 135, 180],
+        range=[0, 180]
+    )
+    fig.update_yaxes(
+        title_text="Ellipticity (-)",
+        title_standoff=20,
+        title_font=dict(size=20),
+        showgrid=True,
+        automargin=False,
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 0.05, 0.1, 0.15, 0.2, 0.25],
+        range=[0, 0.26]
+    )
+    fig.update_layout(
+        width=500,
+        height=400,
+        margin=dict(l=70, r=50, t=50, b=70),
+        template="simple_white",
+        font_family="crm12",
+        legend=dict(
+            font=dict(size=16),
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    fig.show()
+    # fig.write_image("revised_fig_2b.pdf", width=500, height=400)
+
+def figure_4(oss, params):
+    pass
 
 if __name__ == "__main__":
     oss = connect_opticstudio("revised_monochromatic.zmx")
-    params = load_parameters(oss)
 
     # === Simulation 1-4 : Fit Variations === #
-    sim = simulation_multi_map_fit(
-        oss,
-        params,
-        sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
-        n_runs=10,
-    )
-    print_multi_map_fit_results(sim, print_single_runs=False)
+    # params = load_parameters("sim_1_4_params.yaml", oss)
+    # sim = simulation_multi_map_fit(
+    #     oss,
+    #     params,
+    #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
+    #     n_runs=10,
+    # )
+    # print_multi_map_fit_results(sim, print_single_runs=False)
+    # ======================================= #
+
+    # === Figure 2b === #
+    # params = load_parameters("fig_2b_params.yaml", oss)
+    # figure_2b(oss, params, overwrite_intensities=False)
+    # ================= #
+
+    # === Figure 4 === #
+    params = load_parameters("fig_4_params.yaml", oss)
+    figure_4(oss, params)
+    # ================= #
 
     oss.save()
 

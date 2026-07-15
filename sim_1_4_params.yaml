@@ -12,8 +12,10 @@ fit_rng_seed: null
 hqp_size: [10, 19, 18]
 hwp:
   angle_comment: "hwp_angle"
+  retardance_comment: "hwp_retardance"
 qwp:
   angle_comment: "qwp_angle"
+  retardance_comment: "qwp_retardance"
 dic:
   retardance_mc_operand_row_id: 3
 pol:

@@ -1,0 +1,22 @@
+hwp_only:
+  ideal_desc: "Half-waveplate only, ideal waveplates"
+  real_desc: "Half-waveplate only, real waveplates"
+  ideal_config: 4
+  real_config: 5
+  size: 46
+hwp_qwp:
+  desc: "Real half-waveplate and quarter-waveplate"
+  config: 6
+  size: 46
+polarizer:
+  size: 45
+hwp:
+  angle_comment: "hwp_angle"
+  retardance_comment: "hwp_retardance"
+qwp:
+  angle_comment: "qwp_angle"
+  retardance_comment: "qwp_retardance"
+dic:
+  retardance_mc_operand_row_id: 3
+pol:
+  angle_comment: "linear_polarizer_angle"
