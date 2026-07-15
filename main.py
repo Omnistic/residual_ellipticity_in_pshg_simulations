@@ -1031,45 +1031,71 @@ def half_waveplate_scan(oss, params, desc, hwp_angles, pol_angles, intensities_f
 
     return alpha_max, ellipticity
 
+def hwp_and_qwp_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, intensities_filename, overwrite_intensities=True):
+    if overwrite_intensities or not os.path.exists(intensities_filename):
+        polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles)))
+        total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
+        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+            for ha_ind, ha in enumerate(hwp_angles):
+                params["hwp"]["angle_surface"].Thickness = ha
+                for qa_ind, qa in enumerate(qwp_angles):
+                    params["qwp"]["angle_surface"].Thickness = qa
+                    for pa_ind, pa in enumerate(pol_angles):
+                        params["pol"]["angle_surface"].Thickness = pa
+                        polarization_analyzer_intensities[pa_ind, ha_ind, qa_ind] = oss.MFE.GetOperandValue(zp.constants.Editors.MFE.MeritOperandType.CODA, 0, 1, 0, 0, 0, 0, 0, 0)
+                        pbar.update(1)
+        np.save(intensities_filename, polarization_analyzer_intensities)
+    else:
+        polarization_analyzer_intensities = np.load(intensities_filename)
+
+    ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
+
+    for ha_ind, ha in enumerate(hwp_angles):
+        for qa_ind, qa in enumerate(qwp_angles):
+            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind])
+            ellipticity[ha_ind, qa_ind] = el
+
+    return ellipticity
+
 def figure_2b(oss, params, overwrite_intensities=True):
     hwp_angles = np.linspace(0, -90, params["hwp_only"]["size"])
     pol_angles = np.linspace(0, 359, params["polarizer"]["size"])
 
     oss.MCE.SetCurrentConfiguration(params["hwp_only"]["ideal_config"])
-    hwp_only_ideal_wp_intensities_filepath = "hwp_only_ideal_wp_intensities.npy"
+    hwp_only_ideal_wp_intensities_filename = "hwp_only_ideal_wp_intensities.npy"
     hwp_only_ideal_wp_alpha_max, hwp_only_ideal_wp_ellipticity = half_waveplate_scan(
         oss,
         params,
         params["hwp_only"]["ideal_desc"],
         hwp_angles,
         pol_angles,
-        hwp_only_ideal_wp_intensities_filepath,
+        hwp_only_ideal_wp_intensities_filename,
         overwrite_intensities=overwrite_intensities,
         optimize=False,
     )
 
     oss.MCE.SetCurrentConfiguration(params["hwp_only"]["real_config"])
-    hwp_only_real_wp_intensities_filepath = "hwp_only_real_wp_intensities.npy"
+    hwp_only_real_wp_intensities_filename = "hwp_only_real_wp_intensities.npy"
     hwp_only_real_wp_alpha_max, hwp_only_real_wp_ellipticity = half_waveplate_scan(
         oss,
         params,
         params["hwp_only"]["real_desc"],
         hwp_angles,
         pol_angles,
-        hwp_only_real_wp_intensities_filepath,
+        hwp_only_real_wp_intensities_filename,
         overwrite_intensities=overwrite_intensities,
         optimize=False,
     )
 
     oss.MCE.SetCurrentConfiguration(params["hwp_qwp"]["config"])
-    hwp_qwp_real_wp_intensities_filepath = "hwp_qwp_real_wp_intensities.npy"
+    hwp_qwp_real_wp_intensities_filename = "hwp_qwp_real_wp_intensities.npy"
     hwp_qwp_real_wp_alpha_max, hwp_qwp_real_wp_ellipticity = half_waveplate_scan(
         oss,
         params,
         params["hwp_qwp"]["desc"],
         hwp_angles,
         pol_angles,
-        hwp_qwp_real_wp_intensities_filepath,
+        hwp_qwp_real_wp_intensities_filename,
         overwrite_intensities=overwrite_intensities,
         optimize=True,
     )
@@ -1167,8 +1193,91 @@ def figure_2b(oss, params, overwrite_intensities=True):
     fig.show()
     # fig.write_image("revised_fig_2b.pdf", width=500, height=400)
 
-def figure_4(oss, params):
-    pass
+def figure_4(oss, params, overwrite_intensities=True):
+    hwp_angles = np.linspace(0, 90, params["hqp_size"][0])
+    qwp_angles = np.linspace(0, 180, params["hqp_size"][1])
+    pol_angles = np.linspace(0, 359, params["hqp_size"][2])
+
+    oss.MCE.SetCurrentConfiguration(params["monochromatic"]["config"])
+    hwp_qwp_monochromatic_intensities_filename = "hwp_qwp_monochromatic_intensities.npy"
+    hwp_qwp_monochromatic_ellipticity = hwp_and_qwp_scan(
+        oss,
+        params,
+        params["monochromatic"]["desc"],
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        hwp_qwp_monochromatic_intensities_filename,
+        overwrite_intensities=overwrite_intensities,
+    )
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        x_title="QWP Motor Angle (deg)",
+        y_title="HWP Motor Angle (deg)",
+        subplot_titles=("Monochromatic", "Polychromatic")
+    )
+    fig.add_trace(go.Heatmap(
+        z=hwp_qwp_monochromatic_ellipticity,
+        x=qwp_angles,
+        y=hwp_angles,
+        coloraxis="coloraxis"
+    ), row=1, col=1)
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=[0, 30, 60, 90, 120, 150, 180],
+        row=1, col=1
+    )
+    fig.update_xaxes(
+        range=[0, 180],
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90, 120, 150, 180],
+        row=2, col=1
+    )
+    fig.update_yaxes(
+        range=[0, 90],
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90],
+        row=1, col=1
+    )
+    fig.update_yaxes(
+        range=[0, 90],
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90],
+        row=2, col=1
+    )
+    fig.update_layout(
+        width=500,
+        height=400,
+        margin=dict(l=70, r=50, t=50, b=70),
+        template="simple_white",
+        font_family="crm12",
+        coloraxis=dict(
+            cmin=0,
+            cmax=1,
+            colorscale=CUSTOM_COLORSCALE,
+            colorbar_lenmode="pixels",
+            colorbar_len=280,
+            colorbar_thickness=15,
+            colorbar_title="Ellipticity (-)",
+            colorbar_title_font=dict(size=20),
+            colorbar_tickfont=dict(size=16),
+            colorbar_tickmode="array",
+            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+        ),
+        annotations=[
+            dict(
+                font=dict(size=20)
+            ) for annotation in fig.layout.annotations
+        ]
+    )
+    fig.show()
+
 
 if __name__ == "__main__":
     oss = connect_opticstudio("revised_monochromatic.zmx")
@@ -1191,7 +1300,7 @@ if __name__ == "__main__":
 
     # === Figure 4 === #
     params = load_parameters("fig_4_params.yaml", oss)
-    figure_4(oss, params)
+    figure_4(oss, params, overwrite_intensities=True)
     # ================= #
 
     oss.save()

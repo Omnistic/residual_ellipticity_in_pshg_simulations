@@ -1,3 +1,7 @@
+hqp_size: [19, 37, 18]
+monochromatic:
+  desc: "Real half-waveplate and quarter-waveplate scan"
+  config: 7
 hwp:
   angle_comment: "hwp_angle"
   retardance_comment: "hwp_retardance"
