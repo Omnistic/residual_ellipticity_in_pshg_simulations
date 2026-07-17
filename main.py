@@ -1058,7 +1058,7 @@ def hwp_and_qwp_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, inte
 
     return ellipticity
 
-def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, intensities_filename, overwrite_intensities=True):
+def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, intensities_filename, overwrite_intensities=True):
     if overwrite_intensities or not os.path.exists(intensities_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles), 5))
         total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
@@ -1071,7 +1071,7 @@ def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, po
                         params["pol"]["angle_surface"].Thickness = pa
                         oss.MFE.CalculateMeritFunction()
                         for ind in range(1, 5+1):
-                            polarization_analyzer_intensities[pa_ind, ha_ind, qa_ind, ind-1] = oss.MFE.GetOperandAt(2*ind).Value
+                            polarization_analyzer_intensities[pa_ind, ha_ind, qa_ind, ind-1] = oss.MFE.GetOperandAt(2*ind).Value * weights[ind-1]
                         pbar.update(1)
         np.save(intensities_filename, polarization_analyzer_intensities)
     else:
@@ -1086,8 +1086,8 @@ def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, po
 
     for ha_ind, ha in enumerate(hwp_angles):
         for qa_ind, qa in enumerate(qwp_angles):
-            # el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind, 3])
-            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(polarization_analyzer_intensities[:, ha_ind, qa_ind, 0:5], axis=-1))
+            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind, 3])
+            # el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(polarization_analyzer_intensities[:, ha_ind, qa_ind, 0:5], axis=-1))
             ellipticity[ha_ind, qa_ind] = el
 
     return ellipticity
@@ -1104,6 +1104,7 @@ def make_polychromatic(oss, params):
     wavelengths_in_nm = np.linspace(center_wavelength_in_nm-2*standard_deviation_in_nm, center_wavelength_in_nm+2*standard_deviation_in_nm, number_of_wavelengths)
     wavelengths_in_um = wavelengths_in_nm / 1000
     weights = gaussian(wavelengths_in_nm, center_wavelength_in_nm, standard_deviation_in_nm)
+    weights /= np.sum(weights)
 
     center_retardance = 12.1
     half_width_retardance = 20
@@ -1115,15 +1116,12 @@ def make_polychromatic(oss, params):
 
     wave_operand = oss.MCE.GetOperandAt(1)
     wave_operand.ChangeType(zp.constants.Editors.MCE.MultiConfigOperandType.WAVE)
-    wlwt_operand = oss.MCE.InsertNewOperandAt(2)
-    wlwt_operand.ChangeType(zp.constants.Editors.MCE.MultiConfigOperandType.WLWT)
-    dc_retardance_operand = oss.MCE.InsertNewOperandAt(3)
+    dc_retardance_operand = oss.MCE.InsertNewOperandAt(2)
     dc_retardance_operand.ChangeType(zp.constants.Editors.MCE.MultiConfigOperandType.THIC)
     dc_retardance_operand.Param1 = params["dic"]["retardance_surface"].SurfaceNumber
 
     for ind, wavelength_in_um in enumerate(wavelengths_in_um):
         wave_operand.GetOperandCell(oss.MCE.NumberOfConfigurations).DoubleValue = wavelength_in_um
-        wlwt_operand.GetOperandCell(oss.MCE.NumberOfConfigurations).DoubleValue = weights[ind]
         dc_retardance_operand.GetOperandCell(oss.MCE.NumberOfConfigurations).DoubleValue = retardances[ind]
         oss.MCE.AddConfiguration(False)
     oss.MCE.DeleteConfiguration(oss.MCE.NumberOfConfigurations)
@@ -1138,6 +1136,8 @@ def make_polychromatic(oss, params):
         op.ChangeType(zp.constants.Editors.MFE.MeritOperandType.CODA)
     oss.MFE.DeleteRowAt(2)
     oss.MFE.DeleteRowAt(1)
+
+    return weights
     
 def figure_2b(oss, params, overwrite_intensities=True):
     hwp_angles = np.linspace(0, -90, params["hwp_only"]["size"])
@@ -1273,7 +1273,7 @@ def figure_2b(oss, params, overwrite_intensities=True):
         )
     )
     fig.show()
-    # fig.write_image("revised_fig_2b.pdf", width=500, height=400)
+    fig.write_image("revised_fig_2b.pdf", width=500, height=400)
 
 def figure_4(oss, params, overwrite_intensities=True):
     hwp_angles = np.linspace(0, 90, params["hqp_size"][0])
@@ -1362,7 +1362,7 @@ def figure_4(oss, params, overwrite_intensities=True):
 
 
 if __name__ == "__main__":
-    # oss = connect_opticstudio("revised_monochromatic.zmx")
+    oss = connect_opticstudio("revised_monochromatic.zmx")
 
     # === Simulation 1-4 : Fit Variations === #
     # params = load_parameters("sim_1_4_params.yaml", oss)
@@ -1377,99 +1377,101 @@ if __name__ == "__main__":
 
     # === Figure 2b === #
     # params = load_parameters("fig_2b_params.yaml", oss)
-    # figure_2b(oss, params, overwrite_intensities=True)
+    # figure_2b(oss, params, overwrite_intensities=False)
     # ================= #
 
     # === Figure 4 === #
-    # params = load_parameters("fig_4_params.yaml", oss)
-    # figure_4(oss, params, overwrite_intensities=True)
-    # ================= #
-
-    # oss.save()
-
-    oss = connect_opticstudio("revised_polychromatic.zmx")
-    
     params = load_parameters("fig_4_params.yaml", oss)
-    make_polychromatic(oss, params) # Run once to setup the lens file
-    test = hwp_and_qwp_polychromatic_scan(
-        oss,
-        params,
-        "Polychromatic Scan",
-        np.linspace(0, 90, params["hqp_size"][0]),
-        np.linspace(0, 180, params["hqp_size"][1]),
-        np.linspace(0, 359, params["hqp_size"][2]),
-        "hwp_qwp_polychromatic_intensities.npy",
-        overwrite_intensities=False
-    )
+    figure_4(oss, params, overwrite_intensities=True)
+    # ================= #
 
     oss.save()
 
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        x_title="QWP Motor Angle (deg)",
-        y_title="HWP Motor Angle (deg)",
-        subplot_titles=("Monochromatic", "Polychromatic")
-    )
-    fig.add_trace(go.Heatmap(
-        z=test,
-        x=np.linspace(0, 180, params["hqp_size"][1]),
-        y=np.linspace(0, 90, params["hqp_size"][0]),
-        coloraxis="coloraxis"
-    ), row=1, col=1)
-    fig.update_xaxes(
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=1, col=1
-    )
-    fig.update_xaxes(
-        range=[0, 180],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=2, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=1, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=2, col=1
-    )
-    fig.update_layout(
-        width=500,
-        height=400,
-        margin=dict(l=70, r=50, t=50, b=70),
-        template="simple_white",
-        font_family="crm12",
-        coloraxis=dict(
-            cmin=0,
-            cmax=1,
-            colorscale=CUSTOM_COLORSCALE,
-            colorbar_lenmode="pixels",
-            colorbar_len=280,
-            colorbar_thickness=15,
-            colorbar_title="Ellipticity (-)",
-            colorbar_title_font=dict(size=20),
-            colorbar_tickfont=dict(size=16),
-            colorbar_tickmode="array",
-            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
-        ),
-        annotations=[
-            dict(
-                font=dict(size=20)
-            ) for annotation in fig.layout.annotations
-        ]
-    )
-    fig.show()
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    
+    # params = load_parameters("fig_4_params.yaml", oss)
+    # weights = make_polychromatic(oss, params)
+
+    # test = hwp_and_qwp_polychromatic_scan(
+    #     oss,
+    #     params,
+    #     "Polychromatic Scan",
+    #     np.linspace(0, 90, params["hqp_size"][0]),
+    #     np.linspace(0, 180, params["hqp_size"][1]),
+    #     np.linspace(0, 359, params["hqp_size"][2]),
+    #     weights,
+    #     "hwp_qwp_polychromatic_intensities.npy",
+    #     overwrite_intensities=False,
+    # )
+
+    # oss.save()
+
+    # fig = make_subplots(
+    #     rows=2, cols=1,
+    #     shared_xaxes=True,
+    #     x_title="QWP Motor Angle (deg)",
+    #     y_title="HWP Motor Angle (deg)",
+    #     subplot_titles=("Monochromatic", "Polychromatic")
+    # )
+    # fig.add_trace(go.Heatmap(
+    #     z=test,
+    #     x=np.linspace(0, 180, params["hqp_size"][1]),
+    #     y=np.linspace(0, 90, params["hqp_size"][0]),
+    #     coloraxis="coloraxis"
+    # ), row=1, col=1)
+    # fig.update_xaxes(
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90, 120, 150, 180],
+    #     row=1, col=1
+    # )
+    # fig.update_xaxes(
+    #     range=[0, 180],
+    #     tickfont=dict(size=16),
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90, 120, 150, 180],
+    #     row=2, col=1
+    # )
+    # fig.update_yaxes(
+    #     range=[0, 90],
+    #     tickfont=dict(size=16),
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90],
+    #     row=1, col=1
+    # )
+    # fig.update_yaxes(
+    #     range=[0, 90],
+    #     tickfont=dict(size=16),
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90],
+    #     row=2, col=1
+    # )
+    # fig.update_layout(
+    #     width=500,
+    #     height=400,
+    #     margin=dict(l=70, r=50, t=50, b=70),
+    #     template="simple_white",
+    #     font_family="crm12",
+    #     coloraxis=dict(
+    #         cmin=0,
+    #         cmax=1,
+    #         colorscale=CUSTOM_COLORSCALE,
+    #         colorbar_lenmode="pixels",
+    #         colorbar_len=280,
+    #         colorbar_thickness=15,
+    #         colorbar_title="Ellipticity (-)",
+    #         colorbar_title_font=dict(size=20),
+    #         colorbar_tickfont=dict(size=16),
+    #         colorbar_tickmode="array",
+    #         colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+    #         colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+    #     ),
+    #     annotations=[
+    #         dict(
+    #             font=dict(size=20)
+    #         ) for annotation in fig.layout.annotations
+    #     ]
+    # )
+    # fig.show()
 
 
 # if __name__ == "__main__":

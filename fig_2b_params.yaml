@@ -3,13 +3,13 @@ hwp_only:
   real_desc: "Half-waveplate only, real waveplates"
   ideal_config: 4
   real_config: 5
-  size: 46
+  size: 91
 hwp_qwp:
   desc: "Real half-waveplate and quarter-waveplate"
   config: 6
-  size: 46
+  size: 91
 polarizer:
-  size: 45
+  size: 360
 hwp:
   angle_comment: "hwp_angle"
   retardance_comment: "hwp_retardance"

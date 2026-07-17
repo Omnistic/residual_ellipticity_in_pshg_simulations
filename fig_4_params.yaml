@@ -1,4 +1,4 @@
-hqp_size: [19, 37, 18]
+hqp_size: [91, 181, 360]
 monochromatic:
   desc: "Real half-waveplate and quarter-waveplate scan"
   config: 7
