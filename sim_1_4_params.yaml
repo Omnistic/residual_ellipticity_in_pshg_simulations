@@ -17,6 +17,7 @@ qwp:
   angle_comment: "qwp_angle"
   retardance_comment: "qwp_retardance"
 dic:
-  retardance_mc_operand_row_id: 3
+  retardance_mc_operand_row_id: 4
+  retardance_comment: "dichroic_retardance"
 pol:
   angle_comment: "linear_polarizer_angle"
