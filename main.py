@@ -1362,7 +1362,7 @@ def figure_4(oss, params, overwrite_intensities=True):
 
 
 if __name__ == "__main__":
-    oss = connect_opticstudio("revised_monochromatic.zmx")
+    # oss = connect_opticstudio("revised_monochromatic.zmx")
 
     # === Simulation 1-4 : Fit Variations === #
     # params = load_parameters("sim_1_4_params.yaml", oss)
@@ -1381,97 +1381,97 @@ if __name__ == "__main__":
     # ================= #
 
     # === Figure 4 === #
-    params = load_parameters("fig_4_params.yaml", oss)
-    figure_4(oss, params, overwrite_intensities=True)
-    # ================= #
-
-    oss.save()
-
-    # oss = connect_opticstudio("revised_polychromatic.zmx")
-    
     # params = load_parameters("fig_4_params.yaml", oss)
-    # weights = make_polychromatic(oss, params)
-
-    # test = hwp_and_qwp_polychromatic_scan(
-    #     oss,
-    #     params,
-    #     "Polychromatic Scan",
-    #     np.linspace(0, 90, params["hqp_size"][0]),
-    #     np.linspace(0, 180, params["hqp_size"][1]),
-    #     np.linspace(0, 359, params["hqp_size"][2]),
-    #     weights,
-    #     "hwp_qwp_polychromatic_intensities.npy",
-    #     overwrite_intensities=False,
-    # )
+    # figure_4(oss, params, overwrite_intensities=False)
+    # ================= #
 
     # oss.save()
 
-    # fig = make_subplots(
-    #     rows=2, cols=1,
-    #     shared_xaxes=True,
-    #     x_title="QWP Motor Angle (deg)",
-    #     y_title="HWP Motor Angle (deg)",
-    #     subplot_titles=("Monochromatic", "Polychromatic")
-    # )
-    # fig.add_trace(go.Heatmap(
-    #     z=test,
-    #     x=np.linspace(0, 180, params["hqp_size"][1]),
-    #     y=np.linspace(0, 90, params["hqp_size"][0]),
-    #     coloraxis="coloraxis"
-    # ), row=1, col=1)
-    # fig.update_xaxes(
-    #     tickmode="array",
-    #     tickvals=[0, 30, 60, 90, 120, 150, 180],
-    #     row=1, col=1
-    # )
-    # fig.update_xaxes(
-    #     range=[0, 180],
-    #     tickfont=dict(size=16),
-    #     tickmode="array",
-    #     tickvals=[0, 30, 60, 90, 120, 150, 180],
-    #     row=2, col=1
-    # )
-    # fig.update_yaxes(
-    #     range=[0, 90],
-    #     tickfont=dict(size=16),
-    #     tickmode="array",
-    #     tickvals=[0, 30, 60, 90],
-    #     row=1, col=1
-    # )
-    # fig.update_yaxes(
-    #     range=[0, 90],
-    #     tickfont=dict(size=16),
-    #     tickmode="array",
-    #     tickvals=[0, 30, 60, 90],
-    #     row=2, col=1
-    # )
-    # fig.update_layout(
-    #     width=500,
-    #     height=400,
-    #     margin=dict(l=70, r=50, t=50, b=70),
-    #     template="simple_white",
-    #     font_family="crm12",
-    #     coloraxis=dict(
-    #         cmin=0,
-    #         cmax=1,
-    #         colorscale=CUSTOM_COLORSCALE,
-    #         colorbar_lenmode="pixels",
-    #         colorbar_len=280,
-    #         colorbar_thickness=15,
-    #         colorbar_title="Ellipticity (-)",
-    #         colorbar_title_font=dict(size=20),
-    #         colorbar_tickfont=dict(size=16),
-    #         colorbar_tickmode="array",
-    #         colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-    #         colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
-    #     ),
-    #     annotations=[
-    #         dict(
-    #             font=dict(size=20)
-    #         ) for annotation in fig.layout.annotations
-    #     ]
-    # )
-    # fig.show()
+    oss = connect_opticstudio("revised_polychromatic.zmx")
+    
+    params = load_parameters("fig_4_params.yaml", oss)
+    weights = make_polychromatic(oss, params)
+
+    test = hwp_and_qwp_polychromatic_scan(
+        oss,
+        params,
+        "Polychromatic Scan",
+        np.linspace(0, 90, params["hqp_size"][0]),
+        np.linspace(0, 180, params["hqp_size"][1]),
+        np.linspace(0, 359, params["hqp_size"][2]),
+        weights,
+        "hwp_qwp_polychromatic_intensities.npy",
+        overwrite_intensities=False,
+    )
+
+    oss.save()
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        x_title="QWP Motor Angle (deg)",
+        y_title="HWP Motor Angle (deg)",
+        subplot_titles=("Monochromatic", "Polychromatic")
+    )
+    fig.add_trace(go.Heatmap(
+        z=test,
+        x=np.linspace(0, 180, params["hqp_size"][1]),
+        y=np.linspace(0, 90, params["hqp_size"][0]),
+        coloraxis="coloraxis"
+    ), row=1, col=1)
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=[0, 30, 60, 90, 120, 150, 180],
+        row=1, col=1
+    )
+    fig.update_xaxes(
+        range=[0, 180],
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90, 120, 150, 180],
+        row=2, col=1
+    )
+    fig.update_yaxes(
+        range=[0, 90],
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90],
+        row=1, col=1
+    )
+    fig.update_yaxes(
+        range=[0, 90],
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90],
+        row=2, col=1
+    )
+    fig.update_layout(
+        width=500,
+        height=400,
+        margin=dict(l=70, r=50, t=50, b=70),
+        template="simple_white",
+        font_family="crm12",
+        coloraxis=dict(
+            cmin=0,
+            cmax=1,
+            colorscale=CUSTOM_COLORSCALE,
+            colorbar_lenmode="pixels",
+            colorbar_len=280,
+            colorbar_thickness=15,
+            colorbar_title="Ellipticity (-)",
+            colorbar_title_font=dict(size=20),
+            colorbar_tickfont=dict(size=16),
+            colorbar_tickmode="array",
+            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+        ),
+        annotations=[
+            dict(
+                font=dict(size=20)
+            ) for annotation in fig.layout.annotations
+        ]
+    )
+    fig.show()
 
 
 # if __name__ == "__main__":
