@@ -50,671 +50,566 @@ CUSTOM_COLORSCALE = [
     [1.0, "rgba(0, 158, 115, 1)"]
 ]
 
-def monochromatic(oss):
-    if not oss.MCE.SetCurrentConfiguration(HWP_ONLY_CONFIG):
-        raise Exception("Failed to set configuration")
+# def monochromatic(oss):
+#     if not oss.MCE.SetCurrentConfiguration(HWP_ONLY_CONFIG):
+#         raise Exception("Failed to set configuration")
     
-    hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
-    hwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_RETARDANCE_COMMENT)[0]
+#     hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
+#     hwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_RETARDANCE_COMMENT)[0]
 
-    qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
-    qwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_RETARDANCE_COMMENT)[0]
+#     qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
+#     qwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_RETARDANCE_COMMENT)[0]
 
-    if hwp_angle == [] or hwp_retardance == []:
-        raise Exception("HWP surfaces not found")
+#     if hwp_angle == [] or hwp_retardance == []:
+#         raise Exception("HWP surfaces not found")
 
-    if qwp_angle == [] or qwp_retardance == []:
-        raise Exception("QWP surfaces not found")
+#     if qwp_angle == [] or qwp_retardance == []:
+#         raise Exception("QWP surfaces not found")
 
-    qwp_retardance.Thickness = 0
-    qwp_angle.Thickness = 0
+#     qwp_retardance.Thickness = 0
+#     qwp_angle.Thickness = 0
 
-    hwp_angles = np.linspace(0, -90, 91)
+#     hwp_angles = np.linspace(0, -90, 91)
 
-    ideal_ellipticity = []
-    ideal_angle = []
+#     ideal_ellipticity = []
+#     ideal_angle = []
 
-    real_ellipticity = []
-    real_angle = []
+#     real_ellipticity = []
+#     real_angle = []
 
-    compensated_ellipticity = []
-    compensated_angle = []
+#     compensated_ellipticity = []
+#     compensated_angle = []
 
-    for angle in hwp_angles:
-        hwp_retardance.Thickness = 360 * IDEAL_HWP_RETARDANCE_IN_WAVES
-        hwp_angle.Thickness = angle
-        oss.MFE.CalculateMeritFunction()
-        ideal_ellipticity.append(oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value)
-        ideal_angle.append(oss.MFE.GetOperandAt(ANGLE_MFE_OPERAND).Value)
+#     for angle in hwp_angles:
+#         hwp_retardance.Thickness = 360 * IDEAL_HWP_RETARDANCE_IN_WAVES
+#         hwp_angle.Thickness = angle
+#         oss.MFE.CalculateMeritFunction()
+#         ideal_ellipticity.append(oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value)
+#         ideal_angle.append(oss.MFE.GetOperandAt(ANGLE_MFE_OPERAND).Value)
 
-        hwp_retardance.Thickness = 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
-        oss.MFE.CalculateMeritFunction()    
-        real_ellipticity.append(oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value)
-        real_angle.append(oss.MFE.GetOperandAt(ANGLE_MFE_OPERAND).Value)
+#         hwp_retardance.Thickness = 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
+#         oss.MFE.CalculateMeritFunction()    
+#         real_ellipticity.append(oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value)
+#         real_angle.append(oss.MFE.GetOperandAt(ANGLE_MFE_OPERAND).Value)
 
-    hwp_retardance.Thickness = 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
-    qwp_retardance.Thickness = 360 * AQWP10M980_RETARDANCE_IN_WAVES_AT_880
+#     hwp_retardance.Thickness = 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
+#     qwp_retardance.Thickness = 360 * AQWP10M980_RETARDANCE_IN_WAVES_AT_880
 
-    opt = oss.Tools.OpenLocalOptimization()
+#     opt = oss.Tools.OpenLocalOptimization()
 
-    for angle in hwp_angles:
-        hwp_angle.Thickness = angle
-        opt.RunAndWaitForCompletion()
-        if qwp_angle.Thickness % 180 < 0:
-            qwp_angle.Thickness += 180 * ( qwp_angle.Thickness // 180 )
-        elif qwp_angle.Thickness % 180 > 0:
-            qwp_angle.Thickness -= 180 * ( qwp_angle.Thickness // 180 )
-        oss.MFE.CalculateMeritFunction()
-        compensated_ellipticity.append(oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value)
-        compensated_angle.append(oss.MFE.GetOperandAt(ANGLE_MFE_OPERAND).Value)
+#     for angle in hwp_angles:
+#         hwp_angle.Thickness = angle
+#         opt.RunAndWaitForCompletion()
+#         if qwp_angle.Thickness % 180 < 0:
+#             qwp_angle.Thickness += 180 * ( qwp_angle.Thickness // 180 )
+#         elif qwp_angle.Thickness % 180 > 0:
+#             qwp_angle.Thickness -= 180 * ( qwp_angle.Thickness // 180 )
+#         oss.MFE.CalculateMeritFunction()
+#         compensated_ellipticity.append(oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value)
+#         compensated_angle.append(oss.MFE.GetOperandAt(ANGLE_MFE_OPERAND).Value)
 
-    opt.Close()
+#     opt.Close()
 
-    inds = np.argsort(ideal_angle)
-    ideal_angle = np.array(ideal_angle)[inds]
-    ideal_ellipticity = np.array(ideal_ellipticity)[inds]
+#     inds = np.argsort(ideal_angle)
+#     ideal_angle = np.array(ideal_angle)[inds]
+#     ideal_ellipticity = np.array(ideal_ellipticity)[inds]
 
-    inds = np.argsort(real_angle)
-    real_angle = np.array(real_angle)[inds]
-    real_ellipticity = np.array(real_ellipticity)[inds]
+#     inds = np.argsort(real_angle)
+#     real_angle = np.array(real_angle)[inds]
+#     real_ellipticity = np.array(real_ellipticity)[inds]
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=ideal_angle,
-        y=ideal_ellipticity,
-        mode="lines",
-        name="0.5𝜆",
-        line=dict(
-            width=2,
-            color=COLORS[6]+", 1)"
-        )
-    ))
-    fig.add_trace(go.Scatter(
-        x=real_angle,
-        y=real_ellipticity,
-        mode="lines",
-        name=f"{AHWP10M980_RETARDANCE_IN_WAVES_AT_880:.3f}𝜆",
-        line=dict(
-            width=2,
-            color=COLORS[2]+", 1)"
-        )
-    ))
-    fig.add_trace(go.Scatter(
-        x=compensated_angle,
-        y=compensated_ellipticity,
-        mode="lines",
-        name=f"{AHWP10M980_RETARDANCE_IN_WAVES_AT_880:.3f}𝜆 + {AQWP10M980_RETARDANCE_IN_WAVES_AT_880:.3f}𝜆",
-        line=dict(
-            width=2,
-            color=COLORS[1]+", 1)"
-        )
-    ))
-    fig.add_trace(go.Scatter(
-        x=[0, 180],
-        y=[np.amax(ideal_ellipticity), np.amax(ideal_ellipticity)],
-        mode="lines",
-        line=dict(
-            width=3,
-            dash="dash",
-            color=COLORS[6]+", 0.3)"
-        ),
-        showlegend=False
-    ))
-    fig.update_xaxes(
-        title_text="Relative Polarization Angle (deg)",
-        title_font=dict(size=20),
-        showgrid=True,
-        automargin=False,
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 45, 90, 135, 180],
-        range=[0, 180]
-    )
-    fig.update_yaxes(
-        title_text="Ellipticity (-)",
-        title_standoff=20,
-        title_font=dict(size=20),
-        showgrid=True,
-        automargin=False,
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 0.05, 0.1, 0.15, 0.2, 0.25],
-        range=[0, 0.26]
-    )
-    fig.update_layout(
-        width=500,
-        height=400,
-        margin=dict(l=70, r=50, t=50, b=70),
-        template="simple_white",
-        font_family="crm12",
-        legend=dict(
-            font=dict(size=16),
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-    fig.show()
-    fig.write_image(r"monochromatic_simulation.pdf", width=500, height=400)
-
-def polychromatic(oss):
-    make_polychromatic(oss)
-
-    hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
-    hwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_RETARDANCE_COMMENT)[0]
-
-    qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
-    qwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_RETARDANCE_COMMENT)[0]
-    hwp_retardance.Thickness = 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
-    qwp_retardance.Thickness = 360 * AQWP10M980_RETARDANCE_IN_WAVES_AT_880
-
-    dichroic_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, DICHROIC_ANGLE_COMMENT)[0]
-    dichroic_angle.Thickness = DICHROIC_ANGLE_IN_DEG
-
-    a_angles = np.linspace(0, 359, 360)
-
-    hwp_angles = np.linspace(0, 90, 19)
-    # hwp_angles = np.linspace(0, 90, 91)
-    # hwp_angles = np.linspace(0, 90, 4)
-
-    qwp_angles = np.linspace(0, 180, 37)
-    # qwp_angles = np.linspace(0, 180, 181)
-    # qwp_angles = np.linspace(0, 180, 7)
-
-    monochromatic_ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
-    polychromatic_ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
-    monochromatic_alpha_map = -np.ones((len(hwp_angles), len(qwp_angles)))
-    polychromatic_alpha_map = -np.ones((len(hwp_angles), len(qwp_angles)))
-    for ii, ha in enumerate(hwp_angles):
-        for jj, qa in enumerate(qwp_angles):
-            hwp_angle.Thickness = ha
-            qwp_angle.Thickness = qa
-            oss.MFE.CalculateMeritFunction()
-            monochromatic_ellipticity_map[ii, jj] = oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value
-            monochromatic_alpha_map[ii, jj] = oss.MFE.GetOperandAt(11).Value
-            intensity = np.zeros((len(a_angles), NUM_WAVELENGTHS))
-            for kk in range(NUM_WAVELENGTHS):
-                oss.MFE.GetOperandAt(1).GetOperandCell(zp.constants.Editors.MFE.MeritColumn.Param1).IntegerValue = kk + 1
-                oss.MFE.CalculateMeritFunction()
-                e_max = oss.MFE.GetOperandAt(2).Value
-                e_min = oss.MFE.GetOperandAt(3).Value
-                a_max = oss.MFE.GetOperandAt(4).Value
-                intensity[:, kk] = e_max**2 * np.cos(np.deg2rad(a_max - a_angles))**2 + e_min**2 * np.sin(np.deg2rad(a_max - a_angles))**2
-                intensity[:, kk] *= oss.MCE.GetOperandAt(2).GetOperandCell(kk + 1).DoubleValue
-            polychromatic_intensity = np.sum(intensity, axis=1)
-            ee, _, a_max_poly, _, _ = compute_polarization_parameters(np.deg2rad(a_angles), polychromatic_intensity)
-            polychromatic_ellipticity_map[ii, jj] = ee
-            polychromatic_alpha_map[ii, jj] = np.rad2deg(a_max_poly)
-    
-    min_search_start = 70
-    min_search_stop = 111
-    sub_poly_ellipticity_map = polychromatic_ellipticity_map[:, min_search_start:min_search_stop]
-    sub_mono_ellipticity_map = monochromatic_ellipticity_map[:, min_search_start:min_search_stop]
-    sub_poly_alpha_map = polychromatic_alpha_map[:, min_search_start:min_search_stop]
-    sub_mono_alpha_map = monochromatic_alpha_map[:, min_search_start:min_search_stop]
-
-    min_poly_indices = np.argmin(sub_poly_ellipticity_map, axis=1)
-    min_mono_indices = np.argmin(sub_mono_ellipticity_map, axis=1)
-
-    fig = go.Figure()
-    poly_x = sub_poly_alpha_map[np.arange(len(min_poly_indices)), min_poly_indices]
-    poly_y = sub_poly_ellipticity_map[np.arange(len(min_poly_indices)), min_poly_indices]
-    sort_idx = np.argsort(poly_x)
-    fig.add_trace(go.Scatter(
-        x=poly_x[sort_idx],
-        y=poly_y[sort_idx],
-        mode="lines",
-        name="Polychromatic",
-        line=dict(
-            width=2,
-            color="rgba(0, 158, 115, 1)"
-        )
-    ))
-    mono_x = sub_mono_alpha_map[np.arange(len(min_mono_indices)), min_mono_indices]
-    mono_y = sub_mono_ellipticity_map[np.arange(len(min_mono_indices)), min_mono_indices]
-    sort_idx = np.argsort(mono_x)
-    fig.add_trace(go.Scatter(
-        x=mono_x[sort_idx],
-        y=mono_y[sort_idx],
-        mode="lines",
-        name="Monochromatic",
-        line=dict(
-            width=2,
-            color="rgba(204, 121, 167, 1)"
-        )
-    ))
-    fig.update_xaxes(
-        title_text="Relative Polarization Angle (deg)",
-        title_font=dict(size=20),
-        showgrid=True,
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 45, 90, 135, 180],
-        range=[0, 180]
-    )
-    fig.update_yaxes(
-        title_text="Ellipticity (-)",
-        title_font=dict(size=20),
-        showgrid=True,
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 0.05, 0.1, 0.15, 0.2],
-        range=[0, 0.20]
-    )
-    fig.update_layout(
-        width=500,
-        height=400,
-        margin=dict(l=70, r=50, t=50, b=70),
-        template="simple_white",
-        font_family="crm12",
-        legend=dict(
-            font=dict(size=16),
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-    fig.show()
-    fig.write_image(r"mono_poly_plot.pdf", width=500, height=400)
-
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        x_title="QWP Motor Angle (deg)",
-        y_title="HWP Motor Angle (deg)",
-        subplot_titles=("Monochromatic", "Polychromatic")
-    )
-    fig.add_trace(go.Heatmap(
-        z=monochromatic_ellipticity_map,
-        x=qwp_angles,
-        y=hwp_angles,
-        coloraxis="coloraxis"
-    ), row=1, col=1)
-    fig.add_trace(go.Heatmap(
-        z=polychromatic_ellipticity_map,
-        x=qwp_angles,
-        y=hwp_angles,
-        coloraxis="coloraxis"
-    ), row=2, col=1)
-    # fig.add_trace(go.Scatter(
-    #     x=qwp_angles[min_mono_indices+min_search_start],
-    #     y=hwp_angles,
-    #     opacity=0.4,
-    #     mode="lines",
-    #     line=dict(
-    #         color="black",
-    #         width=1.5
-    #     ),
-    #     showlegend=False
-    # ), row=1, col=1)
-    # fig.add_trace(go.Scatter(
-    #     x=qwp_angles[min_poly_indices+min_search_start],
-    #     y=hwp_angles,
-    #     opacity=0.4,
-    #     mode="lines",
-    #     line=dict(
-    #         color="black",
-    #         width=1.5
-    #     ),
-    #     showlegend=False
-    # ), row=2, col=1)
-    fig.update_xaxes(
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=1, col=1
-    )
-    fig.update_xaxes(
-        range=[0, 180],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=2, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=1, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=2, col=1
-    )
-    fig.update_layout(
-        width=500,
-        height=400,
-        margin=dict(l=70, r=50, t=50, b=70),
-        template="simple_white",
-        font_family="crm12",
-        coloraxis=dict(
-            cmin=0,
-            cmax=1,
-            colorscale=CUSTOM_COLORSCALE,
-            colorbar_lenmode="pixels",
-            colorbar_len=280,
-            colorbar_thickness=15,
-            colorbar_title="Ellipticity (-)",
-            colorbar_title_font=dict(size=20),
-            colorbar_tickfont=dict(size=16),
-            colorbar_tickmode="array",
-            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
-        ),
-        annotations=[
-            dict(
-                font=dict(size=20)
-            ) for annotation in fig.layout.annotations
-        ]
-    )
-    fig.show()
-    fig.write_image(r"mono_poly_map.pdf", width=500, height=400)
-
-    return
-
-def vary_dichroic_retardance(oss):
-    hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
-    hwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_RETARDANCE_COMMENT)[0]
-    qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
-    qwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_RETARDANCE_COMMENT)[0]
-    hwp_retardance.Thickness = 180 # 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
-    qwp_retardance.Thickness = 90 # 360 * AQWP10M980_RETARDANCE_IN_WAVES_AT_880
-
-    dichroic_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, DICHROIC_RETARDANCE_COMMENT)[0]
-    retardance_array = np.linspace(0, 180, 19)
-
-    hwp_angles = np.linspace(0, 90, 19)
-    qwp_angles = np.linspace(0, 180, 37)
-    pol_angles = np.linspace(0, 359, 360)
-
-    custom_colorscale = [
-        [0.0, COLORS[5]+" 255)"],
-        [0.5, "rgba(255,255,255, 255)"],
-        [1.0, COLORS[4]+" 255)"]
-    ]
-    retardance_array = [70]
-    for retardance in retardance_array:
-        dichroic_retardance.Thickness = retardance
-        ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
-        intensities = []
-
-        for ii, ha in enumerate(hwp_angles):
-            for jj, qa in enumerate(qwp_angles):
-                hwp_angle.Thickness = ha
-                qwp_angle.Thickness = qa
-                oss.MFE.CalculateMeritFunction()
-                ellipticity_map[ii, jj] = oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value
-
-                e_max = oss.MFE.GetOperandAt(2).Value
-                e_min = oss.MFE.GetOperandAt(3).Value
-                a_max = oss.MFE.GetOperandAt(4).Value
-                intensities.extend(e_max**2 * cos(np.deg2rad(a_max - pol_angles))**2 + e_min**2 * sin(np.deg2rad(a_max - pol_angles))**2)
-
-        alpha_prime = np.tile(pol_angles, len(hwp_angles) * len(qwp_angles))
-        phi_prime = np.tile(np.repeat(qwp_angles, len(pol_angles)), len(hwp_angles))
-        theta_prime = np.repeat(hwp_angles, len(qwp_angles) * len(pol_angles))
-
-        alpha_prime = alpha_prime.reshape(-1, 1).T
-        phi_prime = phi_prime.reshape(-1, 1).T
-        theta_prime = theta_prime.reshape(-1, 1).T
-
-        primes = np.deg2rad(np.vstack((theta_prime, phi_prime, alpha_prime)))
-        _, _, delta, theta_0, phi_0, _ = compute_system_parameters(primes, intensities)
-        theta_motor = np.linspace(0, np.pi/2, 91)
-        initial_guess = np.deg2rad([30, 125])
-        phi_motor_solution_1, phi_motor_solution_2 = phi_motor_for_linear_polarization(theta_motor, theta_0, phi_0, delta, initial_guess=initial_guess)
-
-        fig = go.Figure(data=go.Heatmap(
-            z=ellipticity_map,
-            x=qwp_angles,
-            y=hwp_angles,
-            coloraxis="coloraxis"
-        ))
-        fig.add_trace(go.Scatter(
-            x=np.rad2deg(phi_motor_solution_1),
-            y=np.rad2deg(theta_motor),
-            mode="markers",
-            marker=dict(color="black", width=1)
-        ))
-        fig.add_trace(go.Scatter(
-            x=np.rad2deg(phi_motor_solution_2),
-            y=np.rad2deg(theta_motor),
-            mode="markers",
-            marker=dict(color="black", width=1)
-        ))
-        fig.update_layout(
-            coloraxis=dict(
-                cmin=0,
-                cmax=1,
-                colorscale=custom_colorscale
-            )
-        )
-        fig.show()
-
-def make_polychromatic(oss):
-    while oss.MCE.NumberOfConfigurations != NUM_WAVELENGTHS:
-        if oss.MCE.NumberOfConfigurations < NUM_WAVELENGTHS:
-            oss.MCE.AddConfiguration(False)
-        else:
-            oss.MCE.DeleteConfiguration(1)
-
-    sigma = LASER_FWHM_IN_NM / (2 * np.sqrt(2 * np.log(2)))
-    wl_in_nm = np.linspace(LASER_CENTER_IN_NM - 2*sigma, LASER_CENTER_IN_NM + 2*sigma, NUM_WAVELENGTHS)
-
-    wl_op = oss.MCE.GetOperandAt(1)
-    weight_op = oss.MCE.GetOperandAt(2)
-    weights = []
-    for ii, wl in enumerate(wl_in_nm):
-        wl_op.GetOperandCell(ii+1).DoubleValue = wl/1000
-        weights.append(np.exp(-0.5 * ((wl - LASER_CENTER_IN_NM) / sigma) ** 2))
-    weights = np.array(weights)
-    weights /= np.sum(weights)
-    for ii, weight in enumerate(weights):
-        weight_op.GetOperandCell(ii+1).DoubleValue = weight
-
-    retardance = np.linspace(-DICHROIC_FW_SPREAD_IN_DEG/2+DICHROIC_CENTER_RETARDANCE_IN_DEG, DICHROIC_FW_SPREAD_IN_DEG/2+DICHROIC_CENTER_RETARDANCE_IN_DEG, NUM_WAVELENGTHS)
-
-    ret_op = oss.MCE.GetOperandAt(3)
-    for ii, ret in enumerate(retardance):
-        ret_op.GetOperandCell(ii+1).DoubleValue = ret
-
-    fine_wl = np.linspace(860, 900, 41)
-    fine_weights = np.exp(-0.5 * ((fine_wl - LASER_CENTER_IN_NM) / sigma) ** 2)
-
-    fig = make_subplots(rows=1, cols=2)
-    fig.add_trace(go.Scatter(
-        x=wl_in_nm,
-        y=weights,
-        mode="markers",
-        marker=dict(
-            size=10,
-            symbol="circle-dot",
-            color="rgba(0, 0, 0, 0)",
-            line=dict(
-                width=3,
-                color=COLORS[6]+", 255)"
-            )
-        )
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=fine_wl,
-        y=fine_weights*np.amax(weights),
-        mode="lines",
-        line=dict(
-            width=1.5,
-            dash="dash",
-            color=COLORS[6]+", 255)"
-        )
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=wl_in_nm,
-        y=retardance,
-        mode="lines+markers",
-        line=dict(
-            width=1.5,
-            dash="dash",
-            color=COLORS[2]+", 255)"
-        ),
-        marker=dict(
-            size=10,
-            symbol="circle-dot",
-            color="rgba(0, 0, 0, 0)",
-            line=dict(
-                width=3,
-                color=COLORS[2]+", 255)"
-            )
-        )
-    ), row=1, col=2)
-    fig.update_xaxes(
-        title_text="Wavelength (nm)",
-        title_font=dict(size=20),
-        showgrid=True,
-        tickfont=dict(size=16),
-        range=[860, 900],
-        tickmode="array",
-        tickvals=[860, 870, 880, 890, 900]
-    )
-    fig.update_yaxes(
-        title_text="Relative Weight (-)",
-        title_font=dict(size=20),
-        showgrid=True,
-        range=[0, None],
-        tickfont=dict(size=16),
-        row=1, col=1
-    )
-    fig.update_yaxes(
-        title_text="Retardance (deg)",
-        title_font=dict(size=20),
-        tickfont=dict(size=16),
-        showgrid=True,
-        row=1, col=2
-    )
-    fig.update_layout(
-        width=1000,
-        height=400,
-        margin=dict(l=70, r=50, t=30, b=90),
-        template="simple_white",
-        font_family="crm12",
-        showlegend=False
-    )
-    fig.show()
-    fig.write_image(r"bandwidth_and_spectral_dependance.pdf", width=1000, height=400)
-
-# def polarimeter_intensity(alpha: float, alpha_max: float, k: float, e_min: float) -> float:
-#     e_max = e_min + k**2
-#     return e_max**2 * cos(alpha_max - alpha)**2 + e_min**2 * sin(alpha_max - alpha)**2
-
-# def compute_polarization_parameters(angles: np.ndarray, intensity: np.ndarray, fit_factor: float = 1E4, max_intensity: float = 10):
-#     scaled_intensity = intensity * fit_factor
-#     max_scaled_intensity = max_intensity * fit_factor
-
-#     try:
-#         popt, _ = curve_fit(
-#             polarimeter_intensity, 
-#             angles, 
-#             scaled_intensity, 
-#             bounds=((0, 0, 0), (np.pi, max_scaled_intensity, max_scaled_intensity))
+#     fig = go.Figure()
+#     fig.add_trace(go.Scatter(
+#         x=ideal_angle,
+#         y=ideal_ellipticity,
+#         mode="lines",
+#         name="0.5𝜆",
+#         line=dict(
+#             width=2,
+#             color=COLORS[6]+", 1)"
 #         )
-#     except RuntimeError:
-#         return -1, -1, None, np.inf
-
-#     alpha_max, k, e_min = popt
-
-#     e_max = k**2 + e_min
-#     ellipticity = e_min / e_max
-
-#     fitted_intensity = polarimeter_intensity(angles, *popt) / fit_factor
-
-#     rmse = np.sqrt(np.mean((intensity - fitted_intensity) ** 2))
-#     nrmse = rmse / np.mean(intensity)
-
-#     return ellipticity, e_max, alpha_max, fitted_intensity, nrmse
-
-# def compute_system_parameters(primes, aggregated_intensities):
-#     popt, pcov, _, msg, _ = curve_fit(
-#         general_intensity,
-#         primes,
-#         aggregated_intensities,
-#         p0 = [1, 1, 10/180*np.pi, 10/180*np.pi, 10/180*np.pi, 10/180*np.pi],
-#         bounds=([0, 0, 0, 0, 0, 0], [np.inf, np.inf, np.pi, np.pi/2, np.pi/2, np.pi]),
-#         full_output=True
+#     ))
+#     fig.add_trace(go.Scatter(
+#         x=real_angle,
+#         y=real_ellipticity,
+#         mode="lines",
+#         name=f"{AHWP10M980_RETARDANCE_IN_WAVES_AT_880:.3f}𝜆",
+#         line=dict(
+#             width=2,
+#             color=COLORS[2]+", 1)"
+#         )
+#     ))
+#     fig.add_trace(go.Scatter(
+#         x=compensated_angle,
+#         y=compensated_ellipticity,
+#         mode="lines",
+#         name=f"{AHWP10M980_RETARDANCE_IN_WAVES_AT_880:.3f}𝜆 + {AQWP10M980_RETARDANCE_IN_WAVES_AT_880:.3f}𝜆",
+#         line=dict(
+#             width=2,
+#             color=COLORS[1]+", 1)"
+#         )
+#     ))
+#     fig.add_trace(go.Scatter(
+#         x=[0, 180],
+#         y=[np.amax(ideal_ellipticity), np.amax(ideal_ellipticity)],
+#         mode="lines",
+#         line=dict(
+#             width=3,
+#             dash="dash",
+#             color=COLORS[6]+", 0.3)"
+#         ),
+#         showlegend=False
+#     ))
+#     fig.update_xaxes(
+#         title_text="Relative Polarization Angle (deg)",
+#         title_font=dict(size=20),
+#         showgrid=True,
+#         automargin=False,
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 45, 90, 135, 180],
+#         range=[0, 180]
 #     )
+#     fig.update_yaxes(
+#         title_text="Ellipticity (-)",
+#         title_standoff=20,
+#         title_font=dict(size=20),
+#         showgrid=True,
+#         automargin=False,
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 0.05, 0.1, 0.15, 0.2, 0.25],
+#         range=[0, 0.26]
+#     )
+#     fig.update_layout(
+#         width=500,
+#         height=400,
+#         margin=dict(l=70, r=50, t=50, b=70),
+#         template="simple_white",
+#         font_family="crm12",
+#         legend=dict(
+#             font=dict(size=16),
+#             orientation="h",
+#             yanchor="bottom",
+#             y=1.02,
+#             xanchor="right",
+#             x=1
+#         )
+#     )
+#     fig.show()
+#     fig.write_image(r"monochromatic_simulation.pdf", width=500, height=400)
 
-# def compute_system_parameters(primes, aggregated_intensities, n_restarts=15):
-#     bounds = ([0, 0, -np.pi, 0, 0, 0], [np.inf, np.inf, np.pi, np.pi/2, np.pi/2, np.pi])
-#     rng = np.random.default_rng()
+# def polychromatic(oss):
+#     make_polychromatic(oss)
 
-#     best_popt, best_pcov, best_msg, best_resid = None, None, None, np.inf
+#     hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
+#     hwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_RETARDANCE_COMMENT)[0]
 
-#     for _ in range(n_restarts):
-#         p0 = [
-#             1,
-#             rng.uniform(0.3, 2.0),
-#             rng.uniform(-np.pi, np.pi),
-#             rng.uniform(0, np.pi/2),
-#             rng.uniform(0, np.pi/2),
-#             rng.uniform(0, np.pi),
+#     qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
+#     qwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_RETARDANCE_COMMENT)[0]
+#     hwp_retardance.Thickness = 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
+#     qwp_retardance.Thickness = 360 * AQWP10M980_RETARDANCE_IN_WAVES_AT_880
+
+#     dichroic_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, DICHROIC_ANGLE_COMMENT)[0]
+#     dichroic_angle.Thickness = DICHROIC_ANGLE_IN_DEG
+
+#     a_angles = np.linspace(0, 359, 360)
+
+#     hwp_angles = np.linspace(0, 90, 19)
+#     # hwp_angles = np.linspace(0, 90, 91)
+#     # hwp_angles = np.linspace(0, 90, 4)
+
+#     qwp_angles = np.linspace(0, 180, 37)
+#     # qwp_angles = np.linspace(0, 180, 181)
+#     # qwp_angles = np.linspace(0, 180, 7)
+
+#     monochromatic_ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
+#     polychromatic_ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
+#     monochromatic_alpha_map = -np.ones((len(hwp_angles), len(qwp_angles)))
+#     polychromatic_alpha_map = -np.ones((len(hwp_angles), len(qwp_angles)))
+#     for ii, ha in enumerate(hwp_angles):
+#         for jj, qa in enumerate(qwp_angles):
+#             hwp_angle.Thickness = ha
+#             qwp_angle.Thickness = qa
+#             oss.MFE.CalculateMeritFunction()
+#             monochromatic_ellipticity_map[ii, jj] = oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value
+#             monochromatic_alpha_map[ii, jj] = oss.MFE.GetOperandAt(11).Value
+#             intensity = np.zeros((len(a_angles), NUM_WAVELENGTHS))
+#             for kk in range(NUM_WAVELENGTHS):
+#                 oss.MFE.GetOperandAt(1).GetOperandCell(zp.constants.Editors.MFE.MeritColumn.Param1).IntegerValue = kk + 1
+#                 oss.MFE.CalculateMeritFunction()
+#                 e_max = oss.MFE.GetOperandAt(2).Value
+#                 e_min = oss.MFE.GetOperandAt(3).Value
+#                 a_max = oss.MFE.GetOperandAt(4).Value
+#                 intensity[:, kk] = e_max**2 * np.cos(np.deg2rad(a_max - a_angles))**2 + e_min**2 * np.sin(np.deg2rad(a_max - a_angles))**2
+#                 intensity[:, kk] *= oss.MCE.GetOperandAt(2).GetOperandCell(kk + 1).DoubleValue
+#             polychromatic_intensity = np.sum(intensity, axis=1)
+#             ee, _, a_max_poly, _, _ = compute_polarization_parameters(np.deg2rad(a_angles), polychromatic_intensity)
+#             polychromatic_ellipticity_map[ii, jj] = ee
+#             polychromatic_alpha_map[ii, jj] = np.rad2deg(a_max_poly)
+    
+#     min_search_start = 70
+#     min_search_stop = 111
+#     sub_poly_ellipticity_map = polychromatic_ellipticity_map[:, min_search_start:min_search_stop]
+#     sub_mono_ellipticity_map = monochromatic_ellipticity_map[:, min_search_start:min_search_stop]
+#     sub_poly_alpha_map = polychromatic_alpha_map[:, min_search_start:min_search_stop]
+#     sub_mono_alpha_map = monochromatic_alpha_map[:, min_search_start:min_search_stop]
+
+#     min_poly_indices = np.argmin(sub_poly_ellipticity_map, axis=1)
+#     min_mono_indices = np.argmin(sub_mono_ellipticity_map, axis=1)
+
+#     fig = go.Figure()
+#     poly_x = sub_poly_alpha_map[np.arange(len(min_poly_indices)), min_poly_indices]
+#     poly_y = sub_poly_ellipticity_map[np.arange(len(min_poly_indices)), min_poly_indices]
+#     sort_idx = np.argsort(poly_x)
+#     fig.add_trace(go.Scatter(
+#         x=poly_x[sort_idx],
+#         y=poly_y[sort_idx],
+#         mode="lines",
+#         name="Polychromatic",
+#         line=dict(
+#             width=2,
+#             color="rgba(0, 158, 115, 1)"
+#         )
+#     ))
+#     mono_x = sub_mono_alpha_map[np.arange(len(min_mono_indices)), min_mono_indices]
+#     mono_y = sub_mono_ellipticity_map[np.arange(len(min_mono_indices)), min_mono_indices]
+#     sort_idx = np.argsort(mono_x)
+#     fig.add_trace(go.Scatter(
+#         x=mono_x[sort_idx],
+#         y=mono_y[sort_idx],
+#         mode="lines",
+#         name="Monochromatic",
+#         line=dict(
+#             width=2,
+#             color="rgba(204, 121, 167, 1)"
+#         )
+#     ))
+#     fig.update_xaxes(
+#         title_text="Relative Polarization Angle (deg)",
+#         title_font=dict(size=20),
+#         showgrid=True,
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 45, 90, 135, 180],
+#         range=[0, 180]
+#     )
+#     fig.update_yaxes(
+#         title_text="Ellipticity (-)",
+#         title_font=dict(size=20),
+#         showgrid=True,
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 0.05, 0.1, 0.15, 0.2],
+#         range=[0, 0.20]
+#     )
+#     fig.update_layout(
+#         width=500,
+#         height=400,
+#         margin=dict(l=70, r=50, t=50, b=70),
+#         template="simple_white",
+#         font_family="crm12",
+#         legend=dict(
+#             font=dict(size=16),
+#             orientation="h",
+#             yanchor="bottom",
+#             y=1.02,
+#             xanchor="right",
+#             x=1
+#         )
+#     )
+#     fig.show()
+#     fig.write_image(r"mono_poly_plot.pdf", width=500, height=400)
+
+#     fig = make_subplots(
+#         rows=2, cols=1,
+#         shared_xaxes=True,
+#         x_title="QWP Motor Angle (deg)",
+#         y_title="HWP Motor Angle (deg)",
+#         subplot_titles=("Monochromatic", "Polychromatic")
+#     )
+#     fig.add_trace(go.Heatmap(
+#         z=monochromatic_ellipticity_map,
+#         x=qwp_angles,
+#         y=hwp_angles,
+#         coloraxis="coloraxis"
+#     ), row=1, col=1)
+#     fig.add_trace(go.Heatmap(
+#         z=polychromatic_ellipticity_map,
+#         x=qwp_angles,
+#         y=hwp_angles,
+#         coloraxis="coloraxis"
+#     ), row=2, col=1)
+#     # fig.add_trace(go.Scatter(
+#     #     x=qwp_angles[min_mono_indices+min_search_start],
+#     #     y=hwp_angles,
+#     #     opacity=0.4,
+#     #     mode="lines",
+#     #     line=dict(
+#     #         color="black",
+#     #         width=1.5
+#     #     ),
+#     #     showlegend=False
+#     # ), row=1, col=1)
+#     # fig.add_trace(go.Scatter(
+#     #     x=qwp_angles[min_poly_indices+min_search_start],
+#     #     y=hwp_angles,
+#     #     opacity=0.4,
+#     #     mode="lines",
+#     #     line=dict(
+#     #         color="black",
+#     #         width=1.5
+#     #     ),
+#     #     showlegend=False
+#     # ), row=2, col=1)
+#     fig.update_xaxes(
+#         tickmode="array",
+#         tickvals=[0, 30, 60, 90, 120, 150, 180],
+#         row=1, col=1
+#     )
+#     fig.update_xaxes(
+#         range=[0, 180],
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 30, 60, 90, 120, 150, 180],
+#         row=2, col=1
+#     )
+#     fig.update_yaxes(
+#         range=[0, 90],
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 30, 60, 90],
+#         row=1, col=1
+#     )
+#     fig.update_yaxes(
+#         range=[0, 90],
+#         tickfont=dict(size=16),
+#         tickmode="array",
+#         tickvals=[0, 30, 60, 90],
+#         row=2, col=1
+#     )
+#     fig.update_layout(
+#         width=500,
+#         height=400,
+#         margin=dict(l=70, r=50, t=50, b=70),
+#         template="simple_white",
+#         font_family="crm12",
+#         coloraxis=dict(
+#             cmin=0,
+#             cmax=1,
+#             colorscale=CUSTOM_COLORSCALE,
+#             colorbar_lenmode="pixels",
+#             colorbar_len=280,
+#             colorbar_thickness=15,
+#             colorbar_title="Ellipticity (-)",
+#             colorbar_title_font=dict(size=20),
+#             colorbar_tickfont=dict(size=16),
+#             colorbar_tickmode="array",
+#             colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+#             colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+#         ),
+#         annotations=[
+#             dict(
+#                 font=dict(size=20)
+#             ) for annotation in fig.layout.annotations
 #         ]
-#         try:
-#             popt, pcov, _, msg, _ = curve_fit(
-#                 general_intensity, primes, aggregated_intensities,
-#                 p0=p0, bounds=bounds, full_output=True
+#     )
+#     fig.show()
+#     fig.write_image(r"mono_poly_map.pdf", width=500, height=400)
+
+#     return
+
+# def vary_dichroic_retardance(oss):
+#     hwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_ANGLE_COMMENT)[0]
+#     hwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, HWP_RETARDANCE_COMMENT)[0]
+#     qwp_angle = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_ANGLE_COMMENT)[0]
+#     qwp_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, QWP_RETARDANCE_COMMENT)[0]
+#     hwp_retardance.Thickness = 180 # 360 * AHWP10M980_RETARDANCE_IN_WAVES_AT_880
+#     qwp_retardance.Thickness = 90 # 360 * AQWP10M980_RETARDANCE_IN_WAVES_AT_880
+
+#     dichroic_retardance = zp.functions.lde.find_surface_by_comment(oss.LDE, DICHROIC_RETARDANCE_COMMENT)[0]
+#     retardance_array = np.linspace(0, 180, 19)
+
+#     hwp_angles = np.linspace(0, 90, 19)
+#     qwp_angles = np.linspace(0, 180, 37)
+#     pol_angles = np.linspace(0, 359, 360)
+
+#     custom_colorscale = [
+#         [0.0, COLORS[5]+" 255)"],
+#         [0.5, "rgba(255,255,255, 255)"],
+#         [1.0, COLORS[4]+" 255)"]
+#     ]
+#     retardance_array = [70]
+#     for retardance in retardance_array:
+#         dichroic_retardance.Thickness = retardance
+#         ellipticity_map = -np.ones((len(hwp_angles), len(qwp_angles)))
+#         intensities = []
+
+#         for ii, ha in enumerate(hwp_angles):
+#             for jj, qa in enumerate(qwp_angles):
+#                 hwp_angle.Thickness = ha
+#                 qwp_angle.Thickness = qa
+#                 oss.MFE.CalculateMeritFunction()
+#                 ellipticity_map[ii, jj] = oss.MFE.GetOperandAt(ELLIPTICITY_MFE_OPERAND).Value
+
+#                 e_max = oss.MFE.GetOperandAt(2).Value
+#                 e_min = oss.MFE.GetOperandAt(3).Value
+#                 a_max = oss.MFE.GetOperandAt(4).Value
+#                 intensities.extend(e_max**2 * cos(np.deg2rad(a_max - pol_angles))**2 + e_min**2 * sin(np.deg2rad(a_max - pol_angles))**2)
+
+#         alpha_prime = np.tile(pol_angles, len(hwp_angles) * len(qwp_angles))
+#         phi_prime = np.tile(np.repeat(qwp_angles, len(pol_angles)), len(hwp_angles))
+#         theta_prime = np.repeat(hwp_angles, len(qwp_angles) * len(pol_angles))
+
+#         alpha_prime = alpha_prime.reshape(-1, 1).T
+#         phi_prime = phi_prime.reshape(-1, 1).T
+#         theta_prime = theta_prime.reshape(-1, 1).T
+
+#         primes = np.deg2rad(np.vstack((theta_prime, phi_prime, alpha_prime)))
+#         _, _, delta, theta_0, phi_0, _ = compute_system_parameters(primes, intensities)
+#         theta_motor = np.linspace(0, np.pi/2, 91)
+#         initial_guess = np.deg2rad([30, 125])
+#         phi_motor_solution_1, phi_motor_solution_2 = phi_motor_for_linear_polarization(theta_motor, theta_0, phi_0, delta, initial_guess=initial_guess)
+
+#         fig = go.Figure(data=go.Heatmap(
+#             z=ellipticity_map,
+#             x=qwp_angles,
+#             y=hwp_angles,
+#             coloraxis="coloraxis"
+#         ))
+#         fig.add_trace(go.Scatter(
+#             x=np.rad2deg(phi_motor_solution_1),
+#             y=np.rad2deg(theta_motor),
+#             mode="markers",
+#             marker=dict(color="black", width=1)
+#         ))
+#         fig.add_trace(go.Scatter(
+#             x=np.rad2deg(phi_motor_solution_2),
+#             y=np.rad2deg(theta_motor),
+#             mode="markers",
+#             marker=dict(color="black", width=1)
+#         ))
+#         fig.update_layout(
+#             coloraxis=dict(
+#                 cmin=0,
+#                 cmax=1,
+#                 colorscale=custom_colorscale
 #             )
-#             resid = np.sum((general_intensity(primes, *popt) - aggregated_intensities) ** 2)
-#             if resid < best_resid:
-#                 best_popt, best_pcov, best_msg, best_resid = popt, pcov, msg, resid
-#         except RuntimeError:
-#             continue
+#         )
+#         fig.show()
 
-#     popt, pcov, msg = best_popt, best_pcov, best_msg
+# def make_polychromatic(oss):
+#     while oss.MCE.NumberOfConfigurations != NUM_WAVELENGTHS:
+#         if oss.MCE.NumberOfConfigurations < NUM_WAVELENGTHS:
+#             oss.MCE.AddConfiguration(False)
+#         else:
+#             oss.MCE.DeleteConfiguration(1)
 
-#     # fit = general_intensity(primes, *popt)
-#     # rmse = np.sqrt(np.mean((aggregated_intensities - fit) ** 2))
+#     sigma = LASER_FWHM_IN_NM / (2 * np.sqrt(2 * np.log(2)))
+#     wl_in_nm = np.linspace(LASER_CENTER_IN_NM - 2*sigma, LASER_CENTER_IN_NM + 2*sigma, NUM_WAVELENGTHS)
 
-#     # print(pcov)
-#     # print(msg)
+#     wl_op = oss.MCE.GetOperandAt(1)
+#     weight_op = oss.MCE.GetOperandAt(2)
+#     weights = []
+#     for ii, wl in enumerate(wl_in_nm):
+#         wl_op.GetOperandCell(ii+1).DoubleValue = wl/1000
+#         weights.append(np.exp(-0.5 * ((wl - LASER_CENTER_IN_NM) / sigma) ** 2))
+#     weights = np.array(weights)
+#     weights /= np.sum(weights)
+#     for ii, weight in enumerate(weights):
+#         weight_op.GetOperandCell(ii+1).DoubleValue = weight
 
-#     # print(f"Intensity_0: {popt[0]:.5f}, Gamma: {popt[1]:.5f}, Delta: {np.rad2deg(popt[2]):.5f}, Theta_0: {np.rad2deg(popt[3]):.5f}, Phi_0: {np.rad2deg(popt[4]):.5f}, Alpha_0: {np.rad2deg(popt[5]):.5f}")
+#     retardance = np.linspace(-DICHROIC_FW_SPREAD_IN_DEG/2+DICHROIC_CENTER_RETARDANCE_IN_DEG, DICHROIC_FW_SPREAD_IN_DEG/2+DICHROIC_CENTER_RETARDANCE_IN_DEG, NUM_WAVELENGTHS)
 
-#     # fig = go.Figure(data=go.Scatter(x=np.arange(len(aggregated_intensities)), y=aggregated_intensities))
-#     # fig.add_trace(go.Scatter(x=np.arange(len(aggregated_intensities)), y=fit))
-#     # fig.show()
+#     ret_op = oss.MCE.GetOperandAt(3)
+#     for ii, ret in enumerate(retardance):
+#         ret_op.GetOperandCell(ii+1).DoubleValue = ret
 
-#     intensity_0 = popt[0]
-#     gamma = popt[1]
-#     delta = popt[2]
-#     theta_0 = popt[3]
-#     phi_0 = popt[4]
-#     alpha_0 = popt[5]
+#     fine_wl = np.linspace(860, 900, 41)
+#     fine_weights = np.exp(-0.5 * ((fine_wl - LASER_CENTER_IN_NM) / sigma) ** 2)
 
-#     return intensity_0, gamma, delta, theta_0, phi_0, alpha_0
+#     fig = make_subplots(rows=1, cols=2)
+#     fig.add_trace(go.Scatter(
+#         x=wl_in_nm,
+#         y=weights,
+#         mode="markers",
+#         marker=dict(
+#             size=10,
+#             symbol="circle-dot",
+#             color="rgba(0, 0, 0, 0)",
+#             line=dict(
+#                 width=3,
+#                 color=COLORS[6]+", 255)"
+#             )
+#         )
+#     ), row=1, col=1)
+#     fig.add_trace(go.Scatter(
+#         x=fine_wl,
+#         y=fine_weights*np.amax(weights),
+#         mode="lines",
+#         line=dict(
+#             width=1.5,
+#             dash="dash",
+#             color=COLORS[6]+", 255)"
+#         )
+#     ), row=1, col=1)
+#     fig.add_trace(go.Scatter(
+#         x=wl_in_nm,
+#         y=retardance,
+#         mode="lines+markers",
+#         line=dict(
+#             width=1.5,
+#             dash="dash",
+#             color=COLORS[2]+", 255)"
+#         ),
+#         marker=dict(
+#             size=10,
+#             symbol="circle-dot",
+#             color="rgba(0, 0, 0, 0)",
+#             line=dict(
+#                 width=3,
+#                 color=COLORS[2]+", 255)"
+#             )
+#         )
+#     ), row=1, col=2)
+#     fig.update_xaxes(
+#         title_text="Wavelength (nm)",
+#         title_font=dict(size=20),
+#         showgrid=True,
+#         tickfont=dict(size=16),
+#         range=[860, 900],
+#         tickmode="array",
+#         tickvals=[860, 870, 880, 890, 900]
+#     )
+#     fig.update_yaxes(
+#         title_text="Relative Weight (-)",
+#         title_font=dict(size=20),
+#         showgrid=True,
+#         range=[0, None],
+#         tickfont=dict(size=16),
+#         row=1, col=1
+#     )
+#     fig.update_yaxes(
+#         title_text="Retardance (deg)",
+#         title_font=dict(size=20),
+#         tickfont=dict(size=16),
+#         showgrid=True,
+#         row=1, col=2
+#     )
+#     fig.update_layout(
+#         width=1000,
+#         height=400,
+#         margin=dict(l=70, r=50, t=30, b=90),
+#         template="simple_white",
+#         font_family="crm12",
+#         showlegend=False
+#     )
+#     fig.show()
+#     fig.write_image(r"bandwidth_and_spectral_dependance.pdf", width=1000, height=400)
 
-def linear_polarization(phi, theta, delta):
-    return np.tan(2*phi) + np.tan(delta) * np.sin(2 * (2*theta - phi))
 
-def phi_motor_for_linear_polarization(theta_motor, theta_0, phi_0, delta, initial_guess=[0, 0]):
-    theta = theta_motor - theta_0
 
-    phi_motor_solution_1 = []
-    phi_motor_solution_2 = []
 
-    for t in theta:
-        phi_solution_1 = root(linear_polarization, initial_guess[0], args=(t, delta), method="lm")["x"][0]
-        phi_solution_2 = root(linear_polarization, initial_guess[1], args=(t, delta), method="lm")["x"][0]
-        phi_motor_solution_1.append(phi_solution_1+phi_0)
-        phi_motor_solution_2.append(phi_solution_2+phi_0)
-
-    phi_motor_solution_1 = np.array(phi_motor_solution_1)
-    phi_motor_solution_2 = np.array(phi_motor_solution_2)
-
-    return phi_motor_solution_1, phi_motor_solution_2
 
 
 
@@ -815,17 +710,18 @@ def simulation_multi_map_fit(oss, params, sim_id=1, n_runs=1):
 
     return results_list
 
-def load_parameters(params_file, oss):
+def load_parameters(params_file, oss=None):
     with open(params_file) as f:
         params = yaml.safe_load(f)
 
-    params["hwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["angle_comment"])[0]
-    params["hwp"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["retardance_comment"])[0]
-    params["qwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["angle_comment"])[0]
-    params["qwp"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["retardance_comment"])[0]
-    params["dic"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["dic"]["retardance_comment"])[0]
-    params["dic"]["retardance_mc_operand"] = oss.MCE.GetOperandAt(params["dic"]["retardance_mc_operand_row_id"])
-    params["pol"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["pol"]["angle_comment"])[0]
+    if oss is not None:
+        params["hwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["angle_comment"])[0]
+        params["hwp"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["hwp"]["retardance_comment"])[0]
+        params["qwp"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["angle_comment"])[0]
+        params["qwp"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["qwp"]["retardance_comment"])[0]
+        params["dic"]["retardance_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["dic"]["retardance_comment"])[0]
+        params["dic"]["retardance_mc_operand"] = oss.MCE.GetOperandAt(params["dic"]["retardance_mc_operand_row_id"])
+        params["pol"]["angle_surface"] = zp.functions.lde.find_surface_by_comment(oss.LDE, params["pol"]["angle_comment"])[0]
 
     return params
 
@@ -996,6 +892,35 @@ def compute_polarization_parameters(angles, intensity, fit_factor=10000, max_int
 
     return ellipticity, e_max, alpha_max, fitted_intensity, nrmse
 
+def linear_polarization(phi, theta, delta):
+    return np.tan(2*phi) + np.tan(delta) * np.sin(2 * (2*theta - phi))
+
+def phi_motor_for_linear_polarization(theta_motor, theta_0, phi_0, delta, initial_guess=[0, 0]):
+    theta = theta_motor - theta_0
+
+    phi_motor_solution_1 = []
+    phi_motor_solution_2 = []
+
+    for t in theta:
+        phi_solution_1 = root(linear_polarization, initial_guess[0], args=(t, delta), method="lm")["x"][0]
+        phi_solution_2 = root(linear_polarization, initial_guess[1], args=(t, delta), method="lm")["x"][0]
+        phi_motor_solution_1.append(phi_solution_1+phi_0)
+        phi_motor_solution_2.append(phi_solution_2+phi_0)
+
+    phi_motor_solution_1 = np.array(phi_motor_solution_1)
+    phi_motor_solution_2 = np.array(phi_motor_solution_2)
+
+    return phi_motor_solution_1, phi_motor_solution_2
+
+def phi_minimum_from_ellipticity_map(qwp_angles, ellipticity_map, search_low=60, search_high=120):
+    valid_qwp_indices = np.where((qwp_angles>search_low) & (qwp_angles<search_high))[0]
+    roi = ellipticity_map[:, valid_qwp_indices]
+    local_min_indices = np.argmin(roi, axis=1)
+    min_el = np.min(roi, axis=1)
+    min_indices = valid_qwp_indices[local_min_indices]
+
+    return qwp_angles[min_indices], min_el
+
 def half_waveplate_scan(oss, params, desc, hwp_angles, pol_angles, intensities_filename, overwrite_intensities=True, optimize=False):
     if optimize:
         local_opt = oss.Tools.OpenLocalOptimization()
@@ -1032,8 +957,8 @@ def half_waveplate_scan(oss, params, desc, hwp_angles, pol_angles, intensities_f
 
     return alpha_max, ellipticity
 
-def hwp_and_qwp_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, intensities_filename, overwrite_intensities=True):
-    if overwrite_intensities or not os.path.exists(intensities_filename):
+def hwp_and_qwp_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, intensities_filename, overwrite=False):
+    if overwrite or not os.path.exists(intensities_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles)))
         total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
         with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
@@ -1049,18 +974,25 @@ def hwp_and_qwp_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, inte
     else:
         polarization_analyzer_intensities = np.load(intensities_filename)
 
-    ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
+    return polarization_analyzer_intensities
 
-    for ha_ind, ha in enumerate(hwp_angles):
-        for qa_ind, qa in enumerate(qwp_angles):
-            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind])
-            ellipticity[ha_ind, qa_ind] = el
+def ellipticity_map(hwp_angles, qwp_angles, pol_angles, intensities, ellipticity_filename, overwrite=False):
+    if overwrite or not os.path.exists(ellipticity_filename):
+        ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
+
+        for ha_ind in range(len(hwp_angles)):
+            for qa_ind in range(len(qwp_angles)):
+                el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), intensities[:, ha_ind, qa_ind])
+                ellipticity[ha_ind, qa_ind] = el
+        np.save(ellipticity_filename, ellipticity)
+    else:
+        ellipticity = np.load(ellipticity_filename)
 
     return ellipticity
 
 def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, intensities_filename, overwrite_intensities=True):
     if overwrite_intensities or not os.path.exists(intensities_filename):
-        polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles), 5))
+        polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles), len(weights)))
         total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
         with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
@@ -1070,7 +1002,7 @@ def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, po
                     for pa_ind, pa in enumerate(pol_angles):
                         params["pol"]["angle_surface"].Thickness = pa
                         oss.MFE.CalculateMeritFunction()
-                        for ind in range(1, 5+1):
+                        for ind in range(1, len(weights)+1):
                             polarization_analyzer_intensities[pa_ind, ha_ind, qa_ind, ind-1] = oss.MFE.GetOperandAt(2*ind).Value * weights[ind-1]
                         pbar.update(1)
         np.save(intensities_filename, polarization_analyzer_intensities)
@@ -1078,38 +1010,38 @@ def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, po
         polarization_analyzer_intensities = np.load(intensities_filename)
 
     ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
-
-    # polarization_analyzer_intensities[:, :, :, 0] *= 1.353352832366000E-001	
-    # polarization_analyzer_intensities[:, :, :, 1] *= 6.065306597126000E-001	
-    # polarization_analyzer_intensities[:, :, :, 3] *= 6.065306597126000E-001	
-    # polarization_analyzer_intensities[:, :, :, 4] *= 1.353352832366000E-001
-
     for ha_ind, ha in enumerate(hwp_angles):
         for qa_ind, qa in enumerate(qwp_angles):
-            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind, 3])
-            # el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(polarization_analyzer_intensities[:, ha_ind, qa_ind, 0:5], axis=-1))
+            # el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind, 4])
+            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(polarization_analyzer_intensities[:, ha_ind, qa_ind, :], axis=-1))
             ellipticity[ha_ind, qa_ind] = el
 
     return ellipticity
 
-def make_polychromatic(oss, params):
+def make_polychromatic(oss, params, number_of_wavelengths):
     def gaussian(wavelength, center_wavelength, standard_deviation):
         return np.exp(-0.5 * ((wavelength - center_wavelength) / standard_deviation) ** 2)
 
-    number_of_wavelengths = 5 # Max is 24 in OpticStudio!
     center_wavelength_in_nm = 880
     fwhm_bandwidth_in_nm = 12.5
 
-    standard_deviation_in_nm = fwhm_bandwidth_in_nm / (2 * np.sqrt(2 * np.log(2)))
-    wavelengths_in_nm = np.linspace(center_wavelength_in_nm-2*standard_deviation_in_nm, center_wavelength_in_nm+2*standard_deviation_in_nm, number_of_wavelengths)
-    wavelengths_in_um = wavelengths_in_nm / 1000
-    weights = gaussian(wavelengths_in_nm, center_wavelength_in_nm, standard_deviation_in_nm)
-    weights /= np.sum(weights)
+    if number_of_wavelengths == 1:
+        wavelengths_in_nm = np.array([center_wavelength_in_nm])
+        wavelengths_in_um = wavelengths_in_nm / 1000
+        weights = np.array([1.0])
+    else:
+        standard_deviation_in_nm = fwhm_bandwidth_in_nm / (2 * np.sqrt(2 * np.log(2)))
+        wavelengths_in_nm = np.linspace(center_wavelength_in_nm-2*standard_deviation_in_nm, center_wavelength_in_nm+2*standard_deviation_in_nm, number_of_wavelengths)
+        wavelengths_in_um = wavelengths_in_nm / 1000
+        weights = gaussian(wavelengths_in_nm, center_wavelength_in_nm, standard_deviation_in_nm)
+        weights /= np.sum(weights)
 
     center_retardance = 12.1
-    half_width_retardance = 20
-
-    retardances = np.linspace(center_retardance-half_width_retardance, center_retardance+half_width_retardance, number_of_wavelengths)
+    half_width_retardance = 25
+    if number_of_wavelengths == 1:
+        retardances = np.array([center_retardance])
+    else:
+        retardances = np.linspace(center_retardance+half_width_retardance, center_retardance-half_width_retardance, number_of_wavelengths)
 
     oss.MCE.DeleteAllConfigurations()
     oss.MCE.DeleteAllRows()
@@ -1137,7 +1069,7 @@ def make_polychromatic(oss, params):
     oss.MFE.DeleteRowAt(2)
     oss.MFE.DeleteRowAt(1)
 
-    return weights
+    return wavelengths_in_um, weights
     
 def figure_2b(oss, params, overwrite_intensities=True):
     hwp_angles = np.linspace(0, -90, params["hwp_only"]["size"])
@@ -1360,6 +1292,242 @@ def figure_4(oss, params, overwrite_intensities=True):
     )
     fig.show()
 
+def supplementary_figure_XX(params):
+    # This is intended to work if the nominal number of wavelengths is 31!
+    intensities = np.load("hwp_qwp_polychromatic_intensities_31w.npy")
+    weights = np.load("hwp_qwp_polychromatic_intensities_31w_weights.npy")
+
+    fit_rng = np.random.default_rng(params["fit_rng_seed"])
+    hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
+
+    intensities_monochromatic = intensities[:, :, :, 15] / weights[15]
+
+    # intensities_monochromatic = np.load("hwp_qwp_polychromatic_intensities_1w_ideal.npy")[:,:, :, 0]
+
+    if not os.path.exists("sfig_XX_monochromatic_fit_results.npy"):
+        aggregated_intensities_monochromatic = intensities_monochromatic.transpose(1, 2, 0)
+        aggregated_intensities_monochromatic = aggregated_intensities_monochromatic.ravel() 
+        intensity_0, gamma, delta, theta_0, phi_0, alpha_0 = compute_system_parameters(primes, aggregated_intensities_monochromatic, rng=fit_rng)
+        np.save("sfig_XX_monochromatic_fit_results.npy", np.array([intensity_0, gamma, delta, theta_0, phi_0, alpha_0]))
+        print(f"Monochromatic Fit Results: I_0={intensity_0}, gamma={gamma}, delta={np.rad2deg(delta)}, theta_0={np.rad2deg(theta_0)}, phi_0={np.rad2deg(phi_0)}, alpha_0={np.rad2deg(alpha_0)}")
+    else:
+        intensity_0, gamma, delta, theta_0, phi_0, alpha_0 = np.load("sfig_XX_monochromatic_fit_results.npy")
+        print(f"Monochromatic Fit Results (loaded): I_0={intensity_0}, gamma={gamma}, delta={np.rad2deg(delta)}, theta_0={np.rad2deg(theta_0)}, phi_0={np.rad2deg(phi_0)}, alpha_0={np.rad2deg(alpha_0)}")
+
+    phi_motor_solution_1, phi_motor_solution_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles), theta_0=theta_0, phi_0=phi_0, delta=delta, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
+    if np.abs(np.mean(np.rad2deg(phi_motor_solution_1))-90) < np.abs(np.mean(np.rad2deg(phi_motor_solution_2))-90):
+        phi_motor_plot = phi_motor_solution_1
+    else:
+        phi_motor_plot = phi_motor_solution_2
+
+    monochromatic_ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
+    phi_motor_min_search_low = 60
+    phi_motor_min_search_high = 120
+    phi_motor_min = np.empty(len(hwp_angles))
+    phi_motor_min_el = np.empty(len(hwp_angles))
+    for ha_ind in range(len(hwp_angles)):
+        phi_min_el = np.inf
+        for qa_ind in range(len(qwp_angles)):
+            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), intensities_monochromatic[:, ha_ind, qa_ind])
+            monochromatic_ellipticity[ha_ind, qa_ind] = el
+            if qwp_angles[qa_ind] > phi_motor_min_search_low and qwp_angles[qa_ind] < phi_motor_min_search_high and el < phi_min_el:
+                phi_min_el = el
+                phi_motor_min[ha_ind] = qwp_angles[qa_ind]
+                phi_motor_min_el[ha_ind] = el
+
+    fig = go.Figure()
+    fig.add_trace(go.Heatmap(
+        z=monochromatic_ellipticity,
+        x=np.linspace(0, 180, params["hqp_size"][1]),
+        y=np.linspace(0, 90, params["hqp_size"][0]),
+        coloraxis="coloraxis",
+    ))       
+    fig.add_trace(go.Scatter(
+        x=np.rad2deg(phi_motor_plot),
+        y=hwp_angles,
+        mode="markers",
+    ))  
+    fig.add_trace(go.Scatter(
+        x=phi_motor_min,
+        y=hwp_angles,
+        mode="markers",
+    ))
+    fig.update_layout(
+        coloraxis=dict(
+            cmin=0,
+            cmax=1,
+            colorscale=CUSTOM_COLORSCALE,
+            colorbar_lenmode="pixels",
+            colorbar_len=280,
+            colorbar_thickness=15,
+            colorbar_title="Ellipticity (-)",
+            colorbar_title_font=dict(size=20),
+            colorbar_tickfont=dict(size=16),
+            colorbar_tickmode="array",
+            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+        ),
+    )
+    fig.show()
+
+def new_figure_4(oss, params, overwrite=False):
+    MONO_IDEAL_INTENSITIES_FILE = "fig_4_hwp_qwp_mono_ideal_intensities.npy"
+    MONO_IDEAL_ELLIPTICITY_FILE = "fig_4_hwp_qwp_mono_ideal_ellipticity.npy"
+
+    hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
+    fit_rng = np.random.default_rng(params["fit_rng_seed"])
+    hwp_angles_for_p_sol = np.linspace(0, 90, params["phi_sol_hwp"])
+
+    # === Monochromatic and ideal waveplates === #
+    params["hwp"]["retardance_surface"].Thickness = 180
+    params["qwp"]["retardance_surface"].Thickness = 90
+
+    wavelengths_in_um, weights = make_polychromatic(
+        oss,
+        params,
+        number_of_wavelengths=1,
+    )
+
+    mono_ideal_intensities = hwp_and_qwp_scan(
+        oss,
+        params,
+        "Monochromatic and Ideal Waveplates (a)",
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        MONO_IDEAL_INTENSITIES_FILE,
+        overwrite=overwrite,
+    )
+
+    mono_ideal_ellipticity = ellipticity_map(
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        mono_ideal_intensities,
+        MONO_IDEAL_ELLIPTICITY_FILE,
+        overwrite=overwrite,
+    )
+
+    mono_ideal_i0, mono_ideal_g, mono_ideal_d, mono_ideal_t0, mono_ideal_p0, mono_ideal_a0 = compute_system_parameters(primes, mono_ideal_intensities.transpose(1, 2, 0).ravel(), rng=fit_rng)
+    print(f"Fig 4A | Mono & Ideal Fit: I_0={mono_ideal_i0:.6f}, gamma={mono_ideal_g:.6f}, delta={np.rad2deg(mono_ideal_d):.6f}°, theta_0={np.rad2deg(mono_ideal_t0):.6f}°, phi_0={np.rad2deg(mono_ideal_p0):.6f}°, alpha_0={np.rad2deg(mono_ideal_a0):.6f}°")
+
+    mono_ideal_p_sol_1, mono_ideal_p_sol_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles_for_p_sol), theta_0=mono_ideal_t0, phi_0=mono_ideal_p0, delta=mono_ideal_d, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
+    mono_ideal_p_sol_1 = np.rad2deg(mono_ideal_p_sol_1)
+    mono_ideal_p_sol_2 = np.rad2deg(mono_ideal_p_sol_2)
+    if np.abs(np.mean(mono_ideal_p_sol_1)-90) < np.abs(np.mean(mono_ideal_p_sol_2)-90):
+        mono_ideal_p_sol = mono_ideal_p_sol_1
+    else:
+        mono_ideal_p_sol = mono_ideal_p_sol_2
+
+    mono_ideal_p_min_qwp_ind, mono_ideal_p_min_el = phi_minimum_from_ellipticity_map(qwp_angles, mono_ideal_ellipticity, search_low=60, search_high=120)
+
+    # === Display === #
+    column_widths = [0.5, 0.5]
+    row_heights = [0.5, 0.5]
+    horizontal_spacing = 0.1
+    vertical_spacing = 0.15
+
+    fig = make_subplots(
+        rows=2, cols=2,
+        column_widths=column_widths,
+        row_heights=row_heights,
+        horizontal_spacing=horizontal_spacing,
+        vertical_spacing=vertical_spacing,
+    )
+
+    fig.add_trace(go.Heatmap(
+        z=mono_ideal_ellipticity,
+        x=qwp_angles,
+        y=hwp_angles,
+        coloraxis="coloraxis",
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=mono_ideal_p_sol,
+        y=hwp_angles_for_p_sol,
+        mode="lines",
+        line=dict(
+            color="rgba(0,0,0,1.0)",
+            width=3,     
+            dash="dot",
+        ),
+        name="Fitted Compensation"
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=mono_ideal_p_min_qwp_ind,
+        y=hwp_angles,
+        mode="lines",
+        line=dict(
+            color="rgba(0,114,178,1.0)",
+            width=3,
+            dash="dash",
+        ),
+        name="Minimum Compensation"
+    ), row=1, col=1)
+
+    x_range = [0, 180]
+    y_range = [0, 90]
+
+    fig.update_xaxes(
+        range=x_range,
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90, 120, 150, 180],
+        row=1, col=1
+    )
+    fig.update_yaxes(
+        range=y_range,
+        tickfont=dict(size=16),
+        tickmode="array",
+        tickvals=[0, 30, 60, 90],
+        scaleanchor="x1",
+        scaleratio=1,
+        row=1, col=1
+    )
+    fig.add_trace(go.Scatter(
+        x=hwp_angles,
+        y=mono_ideal_p_min_el,
+        mode="lines",
+        line=dict(
+            color="rgba(0,114,178,1.0)",
+            width=3,
+        ),
+        name="Minimum Compensation",
+        legend="legend2",
+    ), row=1, col=2)
+
+    width = 1000
+    margin = dict(l=80, r=80, t=100, b=80)
+
+    plot_area_w = width - margin["l"] - margin["r"]
+    col1_width_px = plot_area_w * column_widths[0]
+    row1_height_px = col1_width_px * (y_range[1] - y_range[0]) / (x_range[1] - x_range[0])
+    required_height = margin["t"] + margin["b"] + row1_height_px / row_heights[0]
+
+    fig.update_layout(
+        template="simple_white",
+        font_family="crm12",
+        width=width,
+        height=required_height,
+        margin=margin,
+        legend=dict(x=0.0, y=1.13),
+        legend2=dict(x=0.5, y=1.13),
+        coloraxis=dict(
+            cmin=0,
+            cmax=1,
+            colorscale=CUSTOM_COLORSCALE,
+            colorbar_lenmode="pixels",
+            colorbar_len=280,
+            colorbar_thickness=15,
+            colorbar_title="Ellipticity (-)",
+            colorbar_title_font=dict(size=20),
+            colorbar_tickfont=dict(size=16),
+            colorbar_tickmode="array",
+            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+        ),
+    )
+    fig.show()
+
 
 if __name__ == "__main__":
     # oss = connect_opticstudio("revised_monochromatic.zmx")
@@ -1370,7 +1538,7 @@ if __name__ == "__main__":
     #     oss,
     #     params,
     #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
-    #     n_runs=10,
+    #     n_runs=1,
     # )
     # print_multi_map_fit_results(sim, print_single_runs=True)
     # ======================================= #
@@ -1387,104 +1555,105 @@ if __name__ == "__main__":
 
     # oss.save()
 
+
+
     oss = connect_opticstudio("revised_polychromatic.zmx")
-    
-    params = load_parameters("fig_4_params.yaml", oss)
-    weights = make_polychromatic(oss, params)
-
-    test = hwp_and_qwp_polychromatic_scan(
-        oss,
-        params,
-        "Polychromatic Scan",
-        np.linspace(0, 90, params["hqp_size"][0]),
-        np.linspace(0, 180, params["hqp_size"][1]),
-        np.linspace(0, 359, params["hqp_size"][2]),
-        weights,
-        "hwp_qwp_polychromatic_intensities.npy",
-        overwrite_intensities=False,
-    )
-
+    params = load_parameters("new_fig_4_params.yaml", oss)
+    new_figure_4(oss, params, overwrite=False)
     oss.save()
 
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        x_title="QWP Motor Angle (deg)",
-        y_title="HWP Motor Angle (deg)",
-        subplot_titles=("Monochromatic", "Polychromatic")
-    )
-    fig.add_trace(go.Heatmap(
-        z=test,
-        x=np.linspace(0, 180, params["hqp_size"][1]),
-        y=np.linspace(0, 90, params["hqp_size"][0]),
-        coloraxis="coloraxis"
-    ), row=1, col=1)
-    fig.update_xaxes(
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=1, col=1
-    )
-    fig.update_xaxes(
-        range=[0, 180],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=2, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=1, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=2, col=1
-    )
-    fig.update_layout(
-        width=500,
-        height=400,
-        margin=dict(l=70, r=50, t=50, b=70),
-        template="simple_white",
-        font_family="crm12",
-        coloraxis=dict(
-            cmin=0,
-            cmax=1,
-            colorscale=CUSTOM_COLORSCALE,
-            colorbar_lenmode="pixels",
-            colorbar_len=280,
-            colorbar_thickness=15,
-            colorbar_title="Ellipticity (-)",
-            colorbar_title_font=dict(size=20),
-            colorbar_tickfont=dict(size=16),
-            colorbar_tickmode="array",
-            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
-        ),
-        annotations=[
-            dict(
-                font=dict(size=20)
-            ) for annotation in fig.layout.annotations
-        ]
-    )
-    fig.show()
 
 
-# if __name__ == "__main__":
-#     zos = zp.ZOS()
-#     oss = zos.connect()
-#     oss.load("revised_monochromatic.zmx")
-#     oss.UpdateMode = zp.constants.LensUpdateMode.None_
-#     oss.TheApplication.ShowChangesInUI = False
 
-#     # monochromatic(oss)
-#     # polychromatic(oss)
-#     # vary_dichroic_retardance(oss)
+    # Dichroic retardance = 12.1-20:12.1+20
+    # params = load_parameters("sfig_XX_params.yaml")
+    # supplementary_figure_XX(params)
 
-#     revised_simulation(oss)
 
-#     oss.save()
+
+
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    
+    # params = load_parameters("fig_4_params.yaml", oss)
+    # weights = make_polychromatic(oss, params)
+
+    # test = hwp_and_qwp_polychromatic_scan(
+    #     oss,
+    #     params,
+    #     "Polychromatic Scan",
+    #     np.linspace(0, 90, params["hqp_size"][0]),
+    #     np.linspace(0, 180, params["hqp_size"][1]),
+    #     np.linspace(0, 359, params["hqp_size"][2]),
+    #     weights,
+    #     "hwp_qwp_polychromatic_intensities_1w_ideal.npy",
+    #     overwrite_intensities=False,
+    # )
+
+    # oss.save()
+
+    # fig = make_subplots(
+    #     rows=2, cols=1,
+    #     shared_xaxes=True,
+    #     x_title="QWP Motor Angle (deg)",
+    #     y_title="HWP Motor Angle (deg)",
+    #     subplot_titles=("Monochromatic", "Polychromatic")
+    # )
+    # fig.add_trace(go.Heatmap(
+    #     z=test,
+    #     x=np.linspace(0, 180, params["hqp_size"][1]),
+    #     y=np.linspace(0, 90, params["hqp_size"][0]),
+    #     coloraxis="coloraxis"
+    # ), row=1, col=1)
+    # fig.update_xaxes(
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90, 120, 150, 180],
+    #     row=1, col=1
+    # )
+    # fig.update_xaxes(
+    #     range=[0, 180],
+    #     tickfont=dict(size=16),
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90, 120, 150, 180],
+    #     row=2, col=1
+    # )
+    # fig.update_yaxes(
+    #     range=[0, 90],
+    #     tickfont=dict(size=16),
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90],
+    #     row=1, col=1
+    # )
+    # fig.update_yaxes(
+    #     range=[0, 90],
+    #     tickfont=dict(size=16),
+    #     tickmode="array",
+    #     tickvals=[0, 30, 60, 90],
+    #     row=2, col=1
+    # )
+    # fig.update_layout(
+    #     width=500,
+    #     height=400,
+    #     margin=dict(l=70, r=50, t=50, b=70),
+    #     template="simple_white",
+    #     font_family="crm12",
+    #     coloraxis=dict(
+    #         cmin=0,
+    #         cmax=1,
+    #         colorscale=CUSTOM_COLORSCALE,
+    #         colorbar_lenmode="pixels",
+    #         colorbar_len=280,
+    #         colorbar_thickness=15,
+    #         colorbar_title="Ellipticity (-)",
+    #         colorbar_title_font=dict(size=20),
+    #         colorbar_tickfont=dict(size=16),
+    #         colorbar_tickmode="array",
+    #         colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
+    #         colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+    #     ),
+    #     annotations=[
+    #         dict(
+    #             font=dict(size=20)
+    #         ) for annotation in fig.layout.annotations
+    #     ]
+    # )
+    # fig.show()

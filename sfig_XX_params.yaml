@@ -1,0 +1,18 @@
+hqp_size: [46, 91, 90]
+fit_rng_seed: null
+monochromatic:
+  desc: "Real half-waveplate and quarter-waveplate scan"
+  config: 7
+polychromatic:
+  number_of_wavelengths: 31
+hwp:
+  angle_comment: "hwp_angle"
+  retardance_comment: "hwp_retardance"
+qwp:
+  angle_comment: "qwp_angle"
+  retardance_comment: "qwp_retardance"
+dic:
+  retardance_mc_operand_row_id: 4
+  retardance_comment: "dichroic_retardance"
+pol:
+  angle_comment: "linear_polarizer_angle"
