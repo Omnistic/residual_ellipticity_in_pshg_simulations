@@ -475,10 +475,10 @@ def compensated_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, 
 
     return ellipticity
 
-def make_polychromatic(oss, params, number_of_wavelengths):
-    def gaussian(wavelength, center_wavelength, standard_deviation):
-        return np.exp(-0.5 * ((wavelength - center_wavelength) / standard_deviation) ** 2)
+def gaussian(wavelength, center_wavelength, standard_deviation):
+    return np.exp(-0.5 * ((wavelength - center_wavelength) / standard_deviation) ** 2)
 
+def make_polychromatic(oss, params, number_of_wavelengths):
     center_wavelength_in_nm = 880
     fwhm_bandwidth_in_nm = 12.5
 
@@ -749,81 +749,66 @@ def figure_4(oss, params, overwrite_intensities=True):
     )
     fig.show()
 
-def supplementary_figure_XX(params):
+def supplementary_figure_XX(params, overwrrite=False):
     # This is intended to work if the nominal number of wavelengths is 31!
     intensities = np.load("hwp_qwp_polychromatic_intensities_31w.npy")
     weights = np.load("hwp_qwp_polychromatic_intensities_31w_weights.npy")
 
-    fit_rng = np.random.default_rng(params["fit_rng_seed"])
-    hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
+    hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
 
+    ellipticity_maps = np.empty((len(hwp_angles), len(qwp_angles), 5))
+
+    # Monochromatic
     intensities_monochromatic = intensities[:, :, :, 15] / weights[15]
-
-    # intensities_monochromatic = np.load("hwp_qwp_polychromatic_intensities_1w_ideal.npy")[:,:, :, 0]
-
-    if not os.path.exists("sfig_XX_monochromatic_fit_results.npy"):
-        aggregated_intensities_monochromatic = intensities_monochromatic.transpose(1, 2, 0)
-        aggregated_intensities_monochromatic = aggregated_intensities_monochromatic.ravel() 
-        intensity_0, gamma, delta, theta_0, phi_0, alpha_0 = compute_system_parameters(primes, aggregated_intensities_monochromatic, rng=fit_rng)
-        np.save("sfig_XX_monochromatic_fit_results.npy", np.array([intensity_0, gamma, delta, theta_0, phi_0, alpha_0]))
-        print(f"Monochromatic Fit Results: I_0={intensity_0}, gamma={gamma}, delta={np.rad2deg(delta)}, theta_0={np.rad2deg(theta_0)}, phi_0={np.rad2deg(phi_0)}, alpha_0={np.rad2deg(alpha_0)}")
-    else:
-        intensity_0, gamma, delta, theta_0, phi_0, alpha_0 = np.load("sfig_XX_monochromatic_fit_results.npy")
-        print(f"Monochromatic Fit Results (loaded): I_0={intensity_0}, gamma={gamma}, delta={np.rad2deg(delta)}, theta_0={np.rad2deg(theta_0)}, phi_0={np.rad2deg(phi_0)}, alpha_0={np.rad2deg(alpha_0)}")
-
-    phi_motor_solution_1, phi_motor_solution_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles), theta_0=theta_0, phi_0=phi_0, delta=delta, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
-    if np.abs(np.mean(np.rad2deg(phi_motor_solution_1))-90) < np.abs(np.mean(np.rad2deg(phi_motor_solution_2))-90):
-        phi_motor_plot = phi_motor_solution_1
-    else:
-        phi_motor_plot = phi_motor_solution_2
-
-    monochromatic_ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
-    phi_motor_min_search_low = 60
-    phi_motor_min_search_high = 120
-    phi_motor_min = np.empty(len(hwp_angles))
-    phi_motor_min_el = np.empty(len(hwp_angles))
     for ha_ind in range(len(hwp_angles)):
-        phi_min_el = np.inf
         for qa_ind in range(len(qwp_angles)):
             el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), intensities_monochromatic[:, ha_ind, qa_ind])
-            monochromatic_ellipticity[ha_ind, qa_ind] = el
-            if qwp_angles[qa_ind] > phi_motor_min_search_low and qwp_angles[qa_ind] < phi_motor_min_search_high and el < phi_min_el:
-                phi_min_el = el
-                phi_motor_min[ha_ind] = qwp_angles[qa_ind]
-                phi_motor_min_el[ha_ind] = el
+            ellipticity_maps[ha_ind, qa_ind, 0] = el
+    print("Monochromatic ellipticity map computed.")
+
+    # Full polychromatic (31 wavelengths)
+    for ha_ind in range(len(hwp_angles)):
+        for qa_ind in range(len(qwp_angles)):
+            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(intensities[:, ha_ind, qa_ind, :], axis=-1))
+            ellipticity_maps[ha_ind, qa_ind, 4] = el
+    print("Full polychromatic ellipticity map computed.")
+
+    # Partial polychromatic (3, 7, 15 wavelengths), centered on index 15
+    strides = [15, 5, 2]  # -> 3, 7, 15 wavelengths respectively
+
+    for map_ind, stride in enumerate(strides, start=1):
+        idx = np.arange(15 % stride, 31, stride)
+        partial_intensities = np.sum(intensities[:, :, :, idx], axis=-1) / np.sum(weights[idx])
+
+        for ha_ind in range(len(hwp_angles)):
+            for qa_ind in range(len(qwp_angles)):
+                el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), partial_intensities[:, ha_ind, qa_ind])
+                ellipticity_maps[ha_ind, qa_ind, map_ind] = el
+        print(f"Partial polychromatic ellipticity map (stride={stride}) computed.")
+
+    np.save("sfig_XX_ellipticity_maps.npy", ellipticity_maps)
+
+    # RMSE relative to full polychromatic (31 wavelengths)
+    reference = ellipticity_maps[:, :, 4]
+    number_of_wavelengths = [1, 3, 7, 15, 31]
+
+    rmse_values = np.empty(len(number_of_wavelengths))
+    for i in range(len(number_of_wavelengths)):
+        diff = ellipticity_maps[:, :, i] - reference
+        rmse_values[i] = np.sqrt(np.mean(diff**2))
 
     fig = go.Figure()
-    fig.add_trace(go.Heatmap(
-        z=monochromatic_ellipticity,
-        x=np.linspace(0, 180, params["hqp_size"][1]),
-        y=np.linspace(0, 90, params["hqp_size"][0]),
-        coloraxis="coloraxis",
-    ))       
     fig.add_trace(go.Scatter(
-        x=np.rad2deg(phi_motor_plot),
-        y=hwp_angles,
-        mode="markers",
-    ))  
-    fig.add_trace(go.Scatter(
-        x=phi_motor_min,
-        y=hwp_angles,
-        mode="markers",
+        x=number_of_wavelengths,
+        y=rmse_values,
+        mode='lines+markers',
+        marker=dict(size=8),
+        line=dict(width=2),
     ))
     fig.update_layout(
-        coloraxis=dict(
-            cmin=0,
-            cmax=1,
-            colorscale=CUSTOM_COLORSCALE,
-            colorbar_lenmode="pixels",
-            colorbar_len=280,
-            colorbar_thickness=15,
-            colorbar_title="Ellipticity (-)",
-            colorbar_title_font=dict(size=20),
-            colorbar_tickfont=dict(size=16),
-            colorbar_tickmode="array",
-            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
-        ),
+        xaxis_title="Number of wavelengths",
+        yaxis_title="RMSE (ellipticity)",
+        template="plotly_white",
     )
     fig.show()
 
@@ -1082,16 +1067,14 @@ if __name__ == "__main__":
 
     # oss.save()
 
-
-
-    oss = connect_opticstudio("revised_polychromatic.zmx")
-    params = load_parameters("new_fig_4_params.yaml", oss)
-    new_figure_4(oss, params, overwrite=False)
-    oss.save()
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    # params = load_parameters("new_fig_4_params.yaml", oss)
+    # new_figure_4(oss, params, overwrite=False)
+    # oss.save()
 
 
 
 
     # Dichroic retardance = 12.1-20:12.1+20
-    # params = load_parameters("sfig_XX_params.yaml")
-    # supplementary_figure_XX(params)
+    params = load_parameters("sfig_XX_params.yaml")
+    supplementary_figure_XX(params)
