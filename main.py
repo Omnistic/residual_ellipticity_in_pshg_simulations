@@ -345,14 +345,16 @@ def phi_motor_for_linear_polarization(theta_motor, theta_0, phi_0, delta, initia
 
     return phi_motor_solution_1, phi_motor_solution_2
 
-def phi_minimum_from_ellipticity_map(qwp_angles, ellipticity_map, search_low=60, search_high=120):
-    valid_qwp_indices = np.where((qwp_angles>search_low) & (qwp_angles<search_high))[0]
+def phi_minimum_from_ellipticity_map(qwp_angles, ellipticity_map, polarization_angle_map, search_low=60, search_high=120):
+    valid_qwp_indices = np.where((qwp_angles > search_low) & (qwp_angles < search_high))[0]
     roi = ellipticity_map[:, valid_qwp_indices]
     local_min_indices = np.argmin(roi, axis=1)
     min_el = np.min(roi, axis=1)
     min_indices = valid_qwp_indices[local_min_indices]
 
-    return qwp_angles[min_indices], min_el
+    polarization_angle_at_min = polarization_angle_map[np.arange(len(min_indices)), min_indices]
+
+    return qwp_angles[min_indices], min_el, polarization_angle_at_min
 
 def half_waveplate_scan(oss, params, desc, hwp_angles, pol_angles, intensities_filename, overwrite_intensities=True, optimize=False):
     if optimize:
@@ -749,44 +751,51 @@ def figure_4(oss, params, overwrite_intensities=True):
     )
     fig.show()
 
-def supplementary_figure_XX(params, overwrrite=False):
-    # This is intended to work if the nominal number of wavelengths is 31!
-    intensities = np.load("hwp_qwp_polychromatic_intensities_31w.npy")
-    weights = np.load("hwp_qwp_polychromatic_intensities_31w_weights.npy")
-
+def supplementary_figure_XX(params, overwrite=False):
     hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
+    
+    # This is intended to work if the nominal number of wavelengths is 31!
+    # Original data is real waveplates and dichroic retardance 12.1-20:12.1+20deg, 880nm center wavelength, 12.5nm FWHM bandwidth
+    if overwrite or not os.path.exists("sfig_XX_ellipticity_maps.npy"):
+        intensities = np.load("hwp_qwp_polychromatic_intensities_31w.npy")
+        weights = np.load("hwp_qwp_polychromatic_intensities_31w_weights.npy")
 
-    ellipticity_maps = np.empty((len(hwp_angles), len(qwp_angles), 5))
+        ellipticity_maps = np.empty((len(hwp_angles), len(qwp_angles), 5))
+        polarization_angle_maps = np.empty((len(hwp_angles), len(qwp_angles), 5))
 
-    # Monochromatic
-    intensities_monochromatic = intensities[:, :, :, 15] / weights[15]
-    for ha_ind in range(len(hwp_angles)):
-        for qa_ind in range(len(qwp_angles)):
-            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), intensities_monochromatic[:, ha_ind, qa_ind])
-            ellipticity_maps[ha_ind, qa_ind, 0] = el
-    print("Monochromatic ellipticity map computed.")
-
-    # Full polychromatic (31 wavelengths)
-    for ha_ind in range(len(hwp_angles)):
-        for qa_ind in range(len(qwp_angles)):
-            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(intensities[:, ha_ind, qa_ind, :], axis=-1))
-            ellipticity_maps[ha_ind, qa_ind, 4] = el
-    print("Full polychromatic ellipticity map computed.")
-
-    # Partial polychromatic (3, 7, 15 wavelengths), centered on index 15
-    strides = [15, 5, 2]  # -> 3, 7, 15 wavelengths respectively
-
-    for map_ind, stride in enumerate(strides, start=1):
-        idx = np.arange(15 % stride, 31, stride)
-        partial_intensities = np.sum(intensities[:, :, :, idx], axis=-1) / np.sum(weights[idx])
-
+        # Monochromatic
+        intensities_monochromatic = intensities[:, :, :, 15] / weights[15]
         for ha_ind in range(len(hwp_angles)):
             for qa_ind in range(len(qwp_angles)):
-                el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), partial_intensities[:, ha_ind, qa_ind])
-                ellipticity_maps[ha_ind, qa_ind, map_ind] = el
-        print(f"Partial polychromatic ellipticity map (stride={stride}) computed.")
+                el, _, aa, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), intensities_monochromatic[:, ha_ind, qa_ind])
+                ellipticity_maps[ha_ind, qa_ind, 0] = el
+                polarization_angle_maps[ha_ind, qa_ind, 0] = aa
 
-    np.save("sfig_XX_ellipticity_maps.npy", ellipticity_maps)
+        # Full polychromatic (31 wavelengths)
+        for ha_ind in range(len(hwp_angles)):
+            for qa_ind in range(len(qwp_angles)):
+                el, _, aa, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(intensities[:, ha_ind, qa_ind, :], axis=-1))
+                ellipticity_maps[ha_ind, qa_ind, 4] = el
+                polarization_angle_maps[ha_ind, qa_ind, 4] = aa
+
+        # Partial polychromatic (3, 7, 15 wavelengths), centered on index 15
+        strides = [15, 5, 2]  # -> 3, 7, 15 wavelengths respectively
+
+        for map_ind, stride in enumerate(strides, start=1):
+            idx = np.arange(15 % stride, 31, stride)
+            partial_intensities = np.sum(intensities[:, :, :, idx], axis=-1) / np.sum(weights[idx])
+
+            for ha_ind in range(len(hwp_angles)):
+                for qa_ind in range(len(qwp_angles)):
+                    el, _, aa, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), partial_intensities[:, ha_ind, qa_ind])
+                    ellipticity_maps[ha_ind, qa_ind, map_ind] = el
+                    polarization_angle_maps[ha_ind, qa_ind, map_ind] = aa
+
+        np.save("sfig_XX_ellipticity_maps.npy", ellipticity_maps)
+        np.save("sfig_XX_polarization_angle_maps.npy", polarization_angle_maps)
+    else:
+        ellipticity_maps = np.load("sfig_XX_ellipticity_maps.npy")
+        polarization_angle_maps = np.load("sfig_XX_polarization_angle_maps.npy")
 
     # RMSE relative to full polychromatic (31 wavelengths)
     reference = ellipticity_maps[:, :, 4]
@@ -797,20 +806,96 @@ def supplementary_figure_XX(params, overwrrite=False):
         diff = ellipticity_maps[:, :, i] - reference
         rmse_values[i] = np.sqrt(np.mean(diff**2))
 
-    fig = go.Figure()
+    min_qwp_angles = np.empty((len(hwp_angles), ellipticity_maps.shape[2]))
+    min_el = np.empty((len(hwp_angles), ellipticity_maps.shape[2]))
+    min_polarization_angles = np.empty((len(hwp_angles), ellipticity_maps.shape[2]))
+    for i in range(ellipticity_maps.shape[2]):
+        qwp_at_min, el_at_min, pol_angle_at_min = phi_minimum_from_ellipticity_map(
+            qwp_angles, ellipticity_maps[:, :, i], polarization_angle_maps[:, :, i], search_low=60, search_high=120
+        )
+        min_qwp_angles[:, i] = qwp_at_min
+        min_el[:, i] = el_at_min
+        min_polarization_angles[:, i] = np.rad2deg(pol_angle_at_min)
+
+    fig = make_subplots(rows=3, cols=1)
+    fig.add_trace(go.Heatmap(z=ellipticity_maps[:, :, 4], x=qwp_angles, y=hwp_angles, coloraxis="coloraxis"), row=1, col=1)
     fig.add_trace(go.Scatter(
-        x=number_of_wavelengths,
-        y=rmse_values,
-        mode='lines+markers',
-        marker=dict(size=8),
-        line=dict(width=2),
-    ))
+        x=min_qwp_angles[:, 4], y=hwp_angles,
+        mode="lines", line=dict(color="rgba(0,114,178,1.0)", width=3, dash="dash"),
+        name="Minimum Ellipticity (-)",
+        legend="legend2",
+    ), row=1, col=1)
+
+    selected_colors = ["black", COLORS[5] + ", 1)", COLORS[2] + ", 1)", COLORS[6] + ", 1)", COLORS[4] + ", 1)"]
+    selected_dashes = ["dot", "dashdot", "longdash", "solid", "dash"]
+
+    for i in range(ellipticity_maps.shape[2]):
+        label = f"N<sub>λ</sub> = {number_of_wavelengths[i]}"
+        if number_of_wavelengths[i] == 15:
+            label = f"<b>{label}</b>"
+
+        order = np.argsort(min_polarization_angles[:, i])
+        x_sorted = min_polarization_angles[order, i]
+        y_sorted = min_el[order, i]
+
+        fig.add_trace(go.Scatter(x=x_sorted, y=y_sorted, mode="lines", line=dict(color=selected_colors[i], width=3, dash=selected_dashes[i]), name=label), row=2, col=1)
+
+    text=[
+        f"<b>N<sub>λ</sub> = {n}</b>" if n == 15
+        else f"N<sub>λ</sub> = {n}*" if n == 31
+        else f"N<sub>λ</sub> = {n}"
+        for n in number_of_wavelengths
+    ]
+    fig.add_trace(go.Scatter(
+        x=number_of_wavelengths, y=rmse_values, mode="lines+markers+text",
+        line=dict(color="gray", width=3),
+        marker=dict(size=10, color=selected_colors),
+        text=text,
+        textposition=["top right"] * (len(number_of_wavelengths) - 1) + ["top left"],
+        showlegend=False,
+    ), row=3, col=1)
+
+    fig.update_xaxes(title_text="QWP Motor Angle (deg)", range=[0, 180], tick0=0, dtick=30, row=1, col=1)
+    fig.update_yaxes(title_text="HWP Motor Angle (deg)", range=[0, 90], tick0=0, dtick=30, row=1, col=1)
+    fig.update_xaxes(title_text="Relative Polarization Angle (deg)", tick0=0, dtick=30, row=2, col=1)
+    fig.update_yaxes(title_text="Minimum Ellipticity (-)", row=2, col=1)
+    fig.update_xaxes(title_text="Number of wavelengths N<sub>λ</sub> (-)", row=3, col=1)
+    fig.update_yaxes(
+        title_text="Map RMSE (-) (×10<sup>-3</sup>)",
+        range=[-0.001, 0.02],
+        tickmode="array",
+        tickvals=[0, 0.005, 0.010, 0.015, 0.020],
+        ticktext=["0", "5", "10", "15", "20"],
+        row=3, col=1,
+    )
+
+    row1_y0, row1_y1 = fig.layout.yaxis.domain
+    row2_y0, row2_y1 = fig.layout.yaxis2.domain
+
+    fig.add_annotation(
+        text="Ellipticity (-)",
+        xref="paper", yref="paper",
+        x=1.08, y=row1_y1 + 0.005,
+        xanchor="center", yanchor="bottom",
+        showarrow=False,
+        font=dict(size=20),
+    )
     fig.update_layout(
-        xaxis_title="Number of wavelengths",
-        yaxis_title="RMSE (ellipticity)",
-        template="plotly_white",
+        template="simple_white", font_family="crm12", width=1000, height=1200,
+        legend=dict(y=(row2_y0 + row2_y1) / 2, yanchor="middle", x=1.02, xanchor="left", font=dict(size=20)),
+        legend2=dict(y=row1_y1 + 0.005, yanchor="bottom", x=0.5, xanchor="center", orientation="h", font=dict(size=20)),
+        font=dict(size=20),
+        coloraxis=dict(
+            cmin=0, cmax=1, colorscale=CUSTOM_COLORSCALE,
+            colorbar=dict(
+                lenmode="fraction", len=row1_y1 - row1_y0, y=(row1_y0 + row1_y1) / 2, yanchor="middle",
+                thickness=15, title="", tickfont=dict(size=20),
+                tickmode="array", tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1], ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+            ),
+        ),
     )
     fig.show()
+    fig.write_image("sfig_XX.pdf", width=1000, height=1200)
 
 def plot_ellipticity_comparison(
     qwp_angles,
@@ -820,12 +905,14 @@ def plot_ellipticity_comparison(
     real_data,
     colorscale,
     width=1000,
+    font_size=16,
 ):
     x_range, y_range = [0, 180], [0, 90]
     x_ticks, y_ticks = [0, 30, 60, 90, 120, 150, 180], [0, 30, 60, 90]
     line_black = dict(color="rgba(0,0,0,1.0)", width=3)
     line_blue = dict(color="rgba(0,114,178,1.0)", width=3)
- 
+    tick_font = dict(size=font_size)
+
     fig = make_subplots(
         rows=2, cols=2,
         column_widths=[0.5, 0.5],
@@ -833,69 +920,39 @@ def plot_ellipticity_comparison(
         horizontal_spacing=0.1,
         vertical_spacing=0.15,
     )
- 
+
     for row, data, show_legend in [(1, ideal_data, True), (2, real_data, False)]:
         # Ellipticity maps
-        fig.add_trace(go.Heatmap(
-            z=data["ellipticity"], x=qwp_angles, y=hwp_angles, coloraxis="coloraxis",
-        ), row=row, col=1)
-        fig.add_trace(go.Scatter(
-            x=data["p_sol"], y=hwp_angles_for_p_sol, mode="lines",
-            line={**line_black, "dash": "dot"},
-            name="Fit", showlegend=show_legend,
-        ), row=row, col=1)
-        fig.add_trace(go.Scatter(
-            x=data["p_min_qwp_ind"], y=hwp_angles, mode="lines",
-            line={**line_blue, "dash": "dash"},
-            name="Min", showlegend=show_legend,
-        ), row=row, col=1)
- 
+        fig.add_trace(go.Heatmap(z=data["ellipticity"], x=qwp_angles, y=hwp_angles, coloraxis="coloraxis"), row=row, col=1)
+        fig.add_trace(go.Scatter(x=data["p_sol"], y=hwp_angles_for_p_sol, mode="lines", line={**line_black, "dash": "dot"}, name="Fit", showlegend=show_legend), row=row, col=1)
+        fig.add_trace(go.Scatter(x=data["p_min_qwp_ind"], y=hwp_angles, mode="lines", line={**line_blue, "dash": "dash"}, name="Min", showlegend=show_legend), row=row, col=1)
+
         # Compensated ellipticity curves
-        fig.add_trace(go.Scatter(
-            x=hwp_angles_for_p_sol, y=data["p_sol_el"], mode="lines",
-            line=line_black, name="Fit",
-            legend="legend2", showlegend=show_legend,
-        ), row=row, col=2)
-        fig.add_trace(go.Scatter(
-            x=hwp_angles, y=data["p_min_el"], mode="lines",
-            line=line_blue, name="Min",
-            legend="legend2", showlegend=show_legend,
-        ), row=row, col=2)
- 
-        fig.update_xaxes(range=x_range, tickfont=dict(size=16),
-                          tickmode="array", tickvals=x_ticks, row=row, col=1)
-        fig.update_yaxes(range=y_range, tickfont=dict(size=16),
-                          tickmode="array", tickvals=y_ticks,
-                          scaleanchor="x1", scaleratio=1, constrain="domain",
-                          row=row, col=1)
-        
-        fig.update_xaxes(range=[0, 90], tickfont=dict(size=16),
-                         tickmode="array", tickvals=[0, 30, 60, 90], row=row, col=2)
-        fig.update_yaxes(range=[0, 0.2], tickfont=dict(size=16), row=row, col=2)
- 
+        fig.add_trace(go.Scatter(x=hwp_angles_for_p_sol, y=data["p_sol_el"], mode="lines", line=line_black, name="Fit", legend="legend2", showlegend=show_legend), row=row, col=2)
+        fig.add_trace(go.Scatter(x=hwp_angles, y=data["p_min_el"], mode="lines", line=line_blue, name="Min", legend="legend2", showlegend=show_legend), row=row, col=2)
+
+        fig.update_xaxes(range=x_range, tickfont=tick_font, tickmode="array", tickvals=x_ticks, row=row, col=1)
+        fig.update_yaxes(range=y_range, tickfont=tick_font, tickmode="array", tickvals=y_ticks, scaleanchor="x1", scaleratio=1, constrain="domain", row=row, col=1)
+        fig.update_xaxes(range=[0, 90], tickfont=tick_font, tickmode="array", tickvals=[0, 30, 60, 90], row=row, col=2)
+        fig.update_yaxes(range=[0, 0.2], tickfont=tick_font, row=row, col=2)
+
     margin = dict(l=80, r=80, t=100, b=80)
     plot_area_w = width - margin["l"] - margin["r"]
     col1_width_px = plot_area_w * 0.5
     row1_height_px = col1_width_px * (y_range[1] - y_range[0]) / (x_range[1] - x_range[0])
     height = margin["t"] + margin["b"] + row1_height_px / 0.5
- 
+
     fig.update_layout(
-        template="simple_white",
-        font_family="crm12",
-        width=width,
-        height=height,
-        margin=margin,
-        legend=dict(x=0.0, y=1.1, orientation="h", font=dict(size=16)),
-        legend2=dict(x=1.0, y=1.1, xanchor="right", orientation="h", font=dict(size=16)),
+        template="simple_white", font_family="crm12", width=width, height=height, margin=margin,
+        legend=dict(x=0.0, y=1.1, orientation="h", font=tick_font),
+        legend2=dict(x=1.0, y=1.1, xanchor="right", orientation="h", font=tick_font),
         coloraxis=dict(
             cmin=0, cmax=1, colorscale=colorscale,
-            colorbar_lenmode="pixels", colorbar_len=280, colorbar_thickness=15,
-            colorbar_title="Ellipticity (-)",
-            colorbar_title_font=dict(size=20),
-            colorbar_tickfont=dict(size=16),
-            colorbar_tickmode="array",
-            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+            colorbar=dict(
+                lenmode="pixels", len=280, thickness=15,
+                title="Ellipticity (-)", title_font=dict(size=font_size + 4), tickfont=tick_font,
+                tickmode="array", tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1], ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+            ),
         ),
     )
     return fig
@@ -1022,6 +1079,17 @@ def new_figure_4(oss, params, overwrite=False):
 
     mono_real_p_min_qwp_ind, mono_real_p_min_el = phi_minimum_from_ellipticity_map(qwp_angles, mono_real_ellipticity, search_low=60, search_high=120)
 
+    # === Polychromatic and ideal waveplates === #
+    params["hwp"]["retardance_surface"].Thickness = 180
+    params["qwp"]["retardance_surface"].Thickness = 90
+
+    wavelengths_in_um, weights = make_polychromatic(
+        oss,
+        params,
+        number_of_wavelengths=15,
+    )
+    # ... in progress
+
     # === Plotting === #
     mono_ideal = dict(
         ellipticity=mono_ideal_ellipticity,
@@ -1055,26 +1123,28 @@ if __name__ == "__main__":
     # print_multi_map_fit_results(sim, print_single_runs=True)
     # ======================================= #
 
-    # === Figure 2b === #
+    ## === Figure 2b === ##
     # params = load_parameters("fig_2b_params.yaml", oss)
     # figure_2b(oss, params, overwrite_intensities=False)
-    # ================= #
+    ## =============================== ##
 
-    # === Figure 4 === #
+    ## === Figure 4 ================== ##
     # params = load_parameters("fig_4_params.yaml", oss)
     # figure_4(oss, params, overwrite_intensities=False)
-    # ================= #
+    ## =============================== ##
 
     # oss.save()
 
     # oss = connect_opticstudio("revised_polychromatic.zmx")
+
+    ## === New Figure 4 ================== ##
     # params = load_parameters("new_fig_4_params.yaml", oss)
     # new_figure_4(oss, params, overwrite=False)
+    ## =============================== ##
+
     # oss.save()
 
-
-
-
-    # Dichroic retardance = 12.1-20:12.1+20
+    ## === Supplementary Figure XX === ##
     params = load_parameters("sfig_XX_params.yaml")
     supplementary_figure_XX(params)
+    ## =============================== ##
