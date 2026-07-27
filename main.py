@@ -416,6 +416,9 @@ def ellipticity_map(hwp_angles, qwp_angles, pol_angles, intensities, ellipticity
         ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
         polarization_angle = np.empty((len(hwp_angles), len(qwp_angles)))
 
+        if intensities.ndim == 4:
+            intensities = np.sum(intensities, axis=-1)
+
         for ha_ind in range(len(hwp_angles)):
             for qa_ind in range(len(qwp_angles)):
                 el, _, aa, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), intensities[:, ha_ind, qa_ind])
@@ -429,10 +432,10 @@ def ellipticity_map(hwp_angles, qwp_angles, pol_angles, intensities, ellipticity
 
     return ellipticity, polarization_angle
 
-def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, intensities_filename, overwrite_intensities=True):
-    if overwrite_intensities or not os.path.exists(intensities_filename):
+def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, intensities_filename, overwrite=True):
+    if overwrite or not os.path.exists(intensities_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles), len(weights)))
-        total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
+        total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles) * len(weights)
         with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
                 params["hwp"]["angle_surface"].Thickness = ha
@@ -448,14 +451,7 @@ def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, po
     else:
         polarization_analyzer_intensities = np.load(intensities_filename)
 
-    ellipticity = np.empty((len(hwp_angles), len(qwp_angles)))
-    for ha_ind, ha in enumerate(hwp_angles):
-        for qa_ind, qa in enumerate(qwp_angles):
-            # el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, qa_ind, 4])
-            el, _, _, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), np.sum(polarization_analyzer_intensities[:, ha_ind, qa_ind, :], axis=-1))
-            ellipticity[ha_ind, qa_ind] = el
-
-    return ellipticity
+    return polarization_analyzer_intensities
 
 def compensated_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, pol_angles, ellipticity_filename, polarization_angle_filename, overwrite=False):
     if overwrite or not os.path.exists(ellipticity_filename) or not os.path.exists(polarization_angle_filename):
@@ -475,6 +471,37 @@ def compensated_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, 
 
         for ha_ind in range(len(hwp_angles)):
             el, _, aa, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind])
+            ellipticity[ha_ind] = el
+            polarization_angle[ha_ind] = aa
+
+        np.save(ellipticity_filename, ellipticity)
+        np.save(polarization_angle_filename, polarization_angle)
+    else:
+        ellipticity = np.load(ellipticity_filename)
+        polarization_angle = np.load(polarization_angle_filename)
+
+    return ellipticity, polarization_angle
+
+def compensated_polychromatic_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, ellipticity_filename, polarization_angle_filename, overwrite=False):
+    if overwrite or not os.path.exists(ellipticity_filename) or not os.path.exists(polarization_angle_filename):
+        polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(weights)))
+        total_iters = len(hwp_angles) * len(pol_angles) * len(weights)
+        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+            for ha_ind, ha in enumerate(hwp_angles):
+                params["hwp"]["angle_surface"].Thickness = ha
+                params["qwp"]["angle_surface"].Thickness = qwp_angles[ha_ind]
+                for pa_ind, pa in enumerate(pol_angles):
+                    params["pol"]["angle_surface"].Thickness = pa
+                    oss.MFE.CalculateMeritFunction()
+                    for ind in range(1, len(weights)+1):
+                        polarization_analyzer_intensities[pa_ind, ha_ind, ind-1] = oss.MFE.GetOperandAt(2*ind).Value * weights[ind-1]
+                    pbar.update(1)
+
+        ellipticity = np.empty((len(hwp_angles)))
+        polarization_angle = np.empty((len(hwp_angles)))
+
+        for ha_ind in range(len(hwp_angles)):
+            el, _, aa, _, _ = compute_polarization_parameters(np.deg2rad(pol_angles), polarization_analyzer_intensities[:, ha_ind, :].sum(axis=1))
             ellipticity[ha_ind] = el
             polarization_angle[ha_ind] = aa
 
@@ -920,28 +947,35 @@ def plot_ellipticity_comparison(
     qwp_angles,
     hwp_angles,
     hwp_angles_for_p_sol,
-    ideal_data,
-    real_data,
+    datasets,
     colorscale,
     width=1000,
     font_size=20,
 ):
-    x_range, y_range = [0, 185], [0, 90]
-    x_ticks, y_ticks = [0, 30, 60, 90, 120, 150, 180], [0, 30, 60, 90]
+    n_rows = len(datasets)
+    x_range_heatmap = [0, 180]
+    x_ticks_heatmap = [0, 30, 60, 90, 120, 150, 180]
+    x_range_curve = [0, 185]
+    x_ticks_curve = [0, 30, 60, 90, 120, 150, 180]
+    y_range = [0, 90]
+    y_ticks = [0, 30, 60, 90]
     line_black = dict(color="rgba(0,0,0,1.0)", width=3)
     line_blue = dict(color="rgba(0,114,178,1.0)", width=3)
     tick_font = dict(size=font_size)
 
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=n_rows, cols=2,
         column_widths=[0.5, 0.5],
-        row_heights=[0.5, 0.5],
+        row_heights=[1 / n_rows] * n_rows,
         horizontal_spacing=0.1,
         vertical_spacing=0.08,
         shared_xaxes=True,
     )
 
-    for row, data, show_legend in [(1, ideal_data, True), (2, real_data, False)]:
+    for i, data in enumerate(datasets):
+        row = i + 1
+        show_legend = (row == 1)
+
         # Ellipticity maps
         fig.add_trace(go.Heatmap(z=data["ellipticity"], x=qwp_angles, y=hwp_angles, coloraxis="coloraxis"), row=row, col=1)
         fig.add_trace(go.Scatter(x=data["p_sol"], y=hwp_angles_for_p_sol, mode="lines", line={**line_black, "dash": "dot"}, name="Fit", showlegend=show_legend), row=row, col=1)
@@ -954,24 +988,24 @@ def plot_ellipticity_comparison(
         p_min_aa_unwrapped = unwrap_periodic(data["p_min_aa"])
         fig.add_trace(go.Scatter(x=p_min_aa_unwrapped, y=data["p_min_el"], mode="lines", line=line_blue, name="Min", legend="legend2", showlegend=show_legend), row=row, col=2)
 
-        fig.update_xaxes(range=x_range, tickfont=tick_font, tickmode="array", tickvals=x_ticks, row=row, col=1)
-        fig.update_yaxes(title_text="HWP Motor Angle (deg)", title_font=tick_font, range=y_range, tickfont=tick_font, tickmode="array", tickvals=y_ticks, scaleanchor="x1", scaleratio=1, constrain="domain", row=row, col=1)
-        fig.update_xaxes(range=x_range, tickfont=tick_font, tickmode="array", tickvals=x_ticks, row=row, col=2)
-        fig.update_yaxes(title_text="Ellipticity (-)", title_font=tick_font, range=[0, 0.2], tickfont=tick_font, side="right", row=row, col=2)
+        fig.update_xaxes(range=x_range_heatmap, tickfont=tick_font, tickmode="array", tickvals=x_ticks_heatmap, constrain="domain", row=row, col=1)
+        fig.update_yaxes(title_text="HWP Motor Angle (deg)" if row == 1 else None, title_font=tick_font, range=y_range, tickfont=tick_font, tickmode="array", tickvals=y_ticks, scaleanchor=f"x{2*row-1}", scaleratio=1, constrain="domain", row=row, col=1)
+        fig.update_xaxes(range=x_range_curve, tickfont=tick_font, tickmode="array", tickvals=x_ticks_curve, row=row, col=2)
+        fig.update_yaxes(title_text="Ellipticity (-)" if row == 1 else None, title_font=tick_font, range=[0, 0.2], tickfont=tick_font, side="right", row=row, col=2)
 
-    fig.update_xaxes(title_text="QWP Motor Angle (deg)", title_font=tick_font, row=2, col=1)
-    fig.update_xaxes(title_text="Relative Polarization Angle (deg)", title_font=tick_font, row=2, col=2)
+    fig.update_xaxes(title_text="QWP Motor Angle (deg)", title_font=tick_font, row=n_rows, col=1)
+    fig.update_xaxes(title_text="Relative Polarization Angle (deg)", title_font=tick_font, row=n_rows, col=2)
 
     margin = dict(l=80, r=80, t=100, b=80)
     plot_area_w = width - margin["l"] - margin["r"]
     col1_width_px = plot_area_w * 0.5
-    row1_height_px = col1_width_px * (y_range[1] - y_range[0]) / (x_range[1] - x_range[0])
-    height = margin["t"] + margin["b"] + row1_height_px / 0.5
+    row_height_px = col1_width_px * (y_range[1] - y_range[0]) / (x_range_heatmap[1] - x_range_heatmap[0])
+    height = margin["t"] + margin["b"] + row_height_px * n_rows
 
     fig.update_layout(
         template="simple_white", font_family="crm12", width=width, height=height, margin=margin,
-        legend=dict(x=0.14, y=1.10, orientation="h", font=tick_font),
-        legend2=dict(x=0.95, y=1.10, xanchor="right", orientation="h", font=tick_font),
+        legend=dict(x=0.14, y=1 + 40 / height, orientation="h", font=tick_font),
+        legend2=dict(x=0.95, y=1 + 40 / height, xanchor="right", orientation="h", font=tick_font),
         coloraxis=dict(
             cmin=0, cmax=1, colorscale=colorscale,
             colorbar=dict(
@@ -988,13 +1022,21 @@ def new_figure_4(oss, params, overwrite=False):
     MONO_IDEAL_INTENSITIES_FILE = "fig_4_hwp_qwp_mono_ideal_intensities.npy"
     MONO_IDEAL_ELLIPTICITY_FILE = "fig_4_hwp_qwp_mono_ideal_ellipticity.npy"
     MONO_IDEAL_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_mono_ideal_polarization_angle.npy"
+    MONO_IDEAL_SYSTEM_PARAMETERS_FILE = "fig_4_hwp_qwp_mono_ideal_system_parameters.npy"
     MONO_IDEAL_COMPENSATED_ELLIPTICITY_FILE = "fig_4_hwp_qwp_mono_ideal_compensated_ellipticity.npy"
     MONO_IDEAL_COMPENSATED_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_mono_ideal_compensated_polarization_angle.npy"
     MONO_REAL_INTENSITIES_FILE = "fig_4_hwp_qwp_mono_real_intensities.npy"
     MONO_REAL_ELLIPTICITY_FILE = "fig_4_hwp_qwp_mono_real_ellipticity.npy"
     MONO_REAL_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_mono_real_polarization_angle.npy"
+    MONO_REAL_SYSTEM_PARAMETERS_FILE = "fig_4_hwp_qwp_mono_real_system_parameters.npy"
     MONO_REAL_COMPENSATED_ELLIPTICITY_FILE = "fig_4_hwp_qwp_mono_real_compensated_ellipticity.npy"
     MONO_REAL_COMPENSATED_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_mono_real_compensated_polarization_angle.npy"
+    POLY_IDEAL_INTENSITIES_FILE = "fig_4_hwp_qwp_poly_ideal_intensities.npy"
+    POLY_IDEAL_ELLIPTICITY_FILE = "fig_4_hwp_qwp_poly_ideal_ellipticity.npy"
+    POLY_IDEAL_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_poly_ideal_polarization_angle.npy"
+    POLY_IDEAL_SYSTEM_PARAMETERS_FILE = "fig_4_hwp_qwp_poly_ideal_system_parameters.npy"
+    POLY_IDEAL_COMPENSATED_ELLIPTICITY_FILE = "fig_4_hwp_qwp_poly_ideal_compensated_ellipticity.npy"
+    POLY_IDEAL_COMPENSATED_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_poly_ideal_compensated_polarization_angle.npy"
 
     hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
     fit_rng = np.random.default_rng(params["fit_rng_seed"])
@@ -1031,11 +1073,11 @@ def new_figure_4(oss, params, overwrite=False):
         overwrite=overwrite,
     )
 
-    if overwrite or not os.path.exists("fig_4_hwp_qwp_mono_ideal_system_parameeters.npy"):
+    if overwrite or not os.path.exists(MONO_IDEAL_SYSTEM_PARAMETERS_FILE):
         mono_ideal_i0, mono_ideal_g, mono_ideal_d, mono_ideal_t0, mono_ideal_p0, mono_ideal_a0 = compute_system_parameters(primes, mono_ideal_intensities.transpose(1, 2, 0).ravel(), rng=fit_rng)
-        np.save("fig_4_hwp_qwp_mono_ideal_system_parameeters.npy", (mono_ideal_i0, mono_ideal_g, mono_ideal_d, mono_ideal_t0, mono_ideal_p0, mono_ideal_a0))
+        np.save(MONO_IDEAL_SYSTEM_PARAMETERS_FILE, (mono_ideal_i0, mono_ideal_g, mono_ideal_d, mono_ideal_t0, mono_ideal_p0, mono_ideal_a0))
     else:
-        mono_ideal_i0, mono_ideal_g, mono_ideal_d, mono_ideal_t0, mono_ideal_p0, mono_ideal_a0 = np.load("fig_4_hwp_qwp_mono_ideal_system_parameeters.npy")
+        mono_ideal_i0, mono_ideal_g, mono_ideal_d, mono_ideal_t0, mono_ideal_p0, mono_ideal_a0 = np.load(MONO_IDEAL_SYSTEM_PARAMETERS_FILE)
     print(f"Fig 4A | Mono & Ideal Fit: I_0={mono_ideal_i0:.6f}, gamma={mono_ideal_g:.6f}, delta={np.rad2deg(mono_ideal_d):.6f}°, theta_0={np.rad2deg(mono_ideal_t0):.6f}°, phi_0={np.rad2deg(mono_ideal_p0):.6f}°, alpha_0={np.rad2deg(mono_ideal_a0):.6f}°")
 
     mono_ideal_p_sol_1, mono_ideal_p_sol_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles_for_p_sol), theta_0=mono_ideal_t0, phi_0=mono_ideal_p0, delta=mono_ideal_d, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
@@ -1057,13 +1099,18 @@ def new_figure_4(oss, params, overwrite=False):
         MONO_IDEAL_COMPENSATED_POLARIZATION_ANGLE_FILE,
         overwrite=overwrite,
     )
-    mono_ideal_p_sol_aa = np.rad2deg(mono_ideal_p_sol_aa)
 
     mono_ideal_p_min_qwp_ind, mono_ideal_p_min_el, mono_ideal_p_min_aa = phi_minimum_from_ellipticity_map(qwp_angles, mono_ideal_ellipticity, mono_ideal_polarization_angle, search_low=60, search_high=120)
 
     # === Monochromatic and real waveplate === #
     params["hwp"]["retardance_surface"].Thickness = 185.7492
     params["qwp"]["retardance_surface"].Thickness = 92.87280
+
+    wavelengths_in_um, weights = make_polychromatic(
+        oss,
+        params,
+        number_of_wavelengths=1,
+    )
 
     mono_real_intensities = hwp_and_qwp_scan(
         oss,
@@ -1086,11 +1133,11 @@ def new_figure_4(oss, params, overwrite=False):
         overwrite=overwrite,
     )
 
-    if overwrite or not os.path.exists("fig_4_hwp_qwp_mono_real_system_parameeters.npy"):
+    if overwrite or not os.path.exists(MONO_REAL_SYSTEM_PARAMETERS_FILE):
         mono_real_i0, mono_real_g, mono_real_d, mono_real_t0, mono_real_p0, mono_real_a0 = compute_system_parameters(primes, mono_real_intensities.transpose(1, 2, 0).ravel(), rng=fit_rng)
-        np.save("fig_4_hwp_qwp_mono_real_system_parameeters.npy", (mono_real_i0, mono_real_g, mono_real_d, mono_real_t0, mono_real_p0, mono_real_a0))
+        np.save(MONO_REAL_SYSTEM_PARAMETERS_FILE, (mono_real_i0, mono_real_g, mono_real_d, mono_real_t0, mono_real_p0, mono_real_a0))
     else:
-        mono_real_i0, mono_real_g, mono_real_d, mono_real_t0, mono_real_p0, mono_real_a0 = np.load("fig_4_hwp_qwp_mono_real_system_parameeters.npy")
+        mono_real_i0, mono_real_g, mono_real_d, mono_real_t0, mono_real_p0, mono_real_a0 = np.load(MONO_REAL_SYSTEM_PARAMETERS_FILE)
     print(f"Fig 4C | Mono & Real Fit: I_0={mono_real_i0:.6f}, gamma={mono_real_g:.6f}, delta={np.rad2deg(mono_real_d):.6f}°, theta_0={np.rad2deg(mono_real_t0):.6f}°, phi_0={np.rad2deg(mono_real_p0):.6f}°, alpha_0={np.rad2deg(mono_real_a0):.6f}°")
 
     mono_real_p_sol_1, mono_real_p_sol_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles_for_p_sol), theta_0=mono_real_t0, phi_0=mono_real_p0, delta=mono_real_d, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
@@ -1112,7 +1159,6 @@ def new_figure_4(oss, params, overwrite=False):
         MONO_REAL_COMPENSATED_POLARIZATION_ANGLE_FILE,
         overwrite=overwrite,
     )
-    mono_real_p_sol_aa = np.rad2deg(mono_real_p_sol_aa)
 
     mono_real_p_min_qwp_ind, mono_real_p_min_el, mono_real_p_min_aa = phi_minimum_from_ellipticity_map(qwp_angles, mono_real_ellipticity, mono_real_polarization_angle, search_low=60, search_high=120)
 
@@ -1125,11 +1171,78 @@ def new_figure_4(oss, params, overwrite=False):
         params,
         number_of_wavelengths=15,
     )
-    # ... in progress
+
+    poly_ideal_intensities = hwp_and_qwp_polychromatic_scan(
+        oss,
+        params,
+        "Polychromatic and Ideal Waveplates (e)",
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        weights,
+        POLY_IDEAL_INTENSITIES_FILE,
+        overwrite=overwrite,
+    )
+
+    poly_ideal_ellipticity, poly_ideal_polarization_angle = ellipticity_map(
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        poly_ideal_intensities,
+        POLY_IDEAL_ELLIPTICITY_FILE,
+        POLY_IDEAL_POLARIZATION_ANGLE_FILE,
+        overwrite=overwrite,
+    )
+
+    if overwrite or not os.path.exists(POLY_IDEAL_SYSTEM_PARAMETERS_FILE):
+        poly_ideal_i0, poly_ideal_g, poly_ideal_d, poly_ideal_t0, poly_ideal_p0, poly_ideal_a0 = compute_system_parameters(primes, np.sum(poly_ideal_intensities, axis=-1).transpose(1, 2, 0).ravel(), rng=fit_rng)
+        np.save(POLY_IDEAL_SYSTEM_PARAMETERS_FILE, (poly_ideal_i0, poly_ideal_g, poly_ideal_d, poly_ideal_t0, poly_ideal_p0, poly_ideal_a0))
+    else:
+        poly_ideal_i0, poly_ideal_g, poly_ideal_d, poly_ideal_t0, poly_ideal_p0, poly_ideal_a0 = np.load(POLY_IDEAL_SYSTEM_PARAMETERS_FILE)
+    print(f"Fig 4E | Poly & Ideal Fit: I_0={poly_ideal_i0:.6f}, gamma={poly_ideal_g:.6f}, delta={np.rad2deg(poly_ideal_d):.6f}°, theta_0={np.rad2deg(poly_ideal_t0):.6f}°, phi_0={np.rad2deg(poly_ideal_p0):.6f}°, alpha_0={np.rad2deg(poly_ideal_a0):.6f}°")
+
+    poly_ideal_p_sol_1, poly_ideal_p_sol_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles_for_p_sol), theta_0=poly_ideal_t0, phi_0=poly_ideal_p0, delta=poly_ideal_d, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
+    poly_ideal_p_sol_1 = np.rad2deg(poly_ideal_p_sol_1)
+    poly_ideal_p_sol_2 = np.rad2deg(poly_ideal_p_sol_2)
+    if np.abs(np.mean(poly_ideal_p_sol_1)-90) < np.abs(np.mean(poly_ideal_p_sol_2)-90):
+        poly_ideal_p_sol = poly_ideal_p_sol_1
+    else:
+        poly_ideal_p_sol = poly_ideal_p_sol_2
+
+    poly_ideal_p_sol_el, poly_ideal_p_sol_aa = compensated_polychromatic_ellipticity_from_fit(
+        oss,
+        params,
+        "Polychromatic and Ideal Waveplates (f)",
+        hwp_angles_for_p_sol,
+        poly_ideal_p_sol,
+        pol_angles,
+        weights,
+        POLY_IDEAL_COMPENSATED_ELLIPTICITY_FILE,
+        POLY_IDEAL_COMPENSATED_POLARIZATION_ANGLE_FILE,
+        overwrite=overwrite,
+    )
+
+    poly_ideal_p_min_qwp_ind, poly_ideal_p_min_el, poly_ideal_p_min_aa = phi_minimum_from_ellipticity_map(qwp_angles, poly_ideal_ellipticity, poly_ideal_polarization_angle, search_low=60, search_high=120)
+
+    # === Polychromatic and real waveplates === #
+    params["hwp"]["retardance_surface"].Thickness = 185.7492
+    params["qwp"]["retardance_surface"].Thickness = 92.87280
+
+    wavelengths_in_um, weights = make_polychromatic(
+        oss,
+        params,
+        number_of_wavelengths=15,
+    )
+
+    # IN PROGRESS ...
 
     # === Plotting === #
+    mono_ideal_p_sol_aa = np.rad2deg(mono_ideal_p_sol_aa)
     mono_ideal_p_min_aa = np.rad2deg(mono_ideal_p_min_aa)
+    mono_real_p_sol_aa = np.rad2deg(mono_real_p_sol_aa)
     mono_real_p_min_aa = np.rad2deg(mono_real_p_min_aa)
+    poly_ideal_p_sol_aa = np.rad2deg(poly_ideal_p_sol_aa)
+    poly_ideal_p_min_aa = np.rad2deg(poly_ideal_p_min_aa)
 
     mono_ideal = dict(
         ellipticity=mono_ideal_ellipticity,
@@ -1149,8 +1262,17 @@ def new_figure_4(oss, params, overwrite=False):
         p_min_el=mono_real_p_min_el,
         p_min_aa=mono_real_p_min_aa,
     )
+    poly_ideal = dict(
+        ellipticity=poly_ideal_ellipticity,
+        p_sol=poly_ideal_p_sol,
+        p_min_qwp_ind=poly_ideal_p_min_qwp_ind,
+        p_sol_el=poly_ideal_p_sol_el,
+        p_sol_aa=poly_ideal_p_sol_aa,
+        p_min_el=poly_ideal_p_min_el,
+        p_min_aa=poly_ideal_p_min_aa,
+    )
     fig = plot_ellipticity_comparison(qwp_angles, hwp_angles, hwp_angles_for_p_sol,
-                                    mono_ideal, mono_real, CUSTOM_COLORSCALE)
+                                      [mono_ideal, mono_real, poly_ideal], CUSTOM_COLORSCALE)
     fig.show()
     
 if __name__ == "__main__":
