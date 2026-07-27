@@ -1004,15 +1004,16 @@ def plot_ellipticity_comparison(
 
     fig.update_layout(
         template="simple_white", font_family="crm12", width=width, height=height, margin=margin,
-        legend=dict(x=0.14, y=1 + 40 / height, orientation="h", font=tick_font),
-        legend2=dict(x=0.95, y=1 + 40 / height, xanchor="right", orientation="h", font=tick_font),
+        legend=dict(x=0.14, y=1.02 + 40 / height, orientation="h", font=tick_font),
+        legend2=dict(x=0.95, y=1.02 + 40 / height, xanchor="right", orientation="h", font=tick_font),
         coloraxis=dict(
             cmin=0, cmax=1, colorscale=colorscale,
             colorbar=dict(
-                x=0.45, xanchor="left",
-                lenmode="pixels", len=280, thickness=15,
+                x=0.43, xanchor="left",
+                y=0.923, yanchor="middle",
+                lenmode="pixels", len=230, thickness=15,
                 title="Ellipticity (-)", title_font=tick_font, tickfont=tick_font,
-                tickmode="array", tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1], ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
+                tickmode="array", tickvals=[0, 0.5, 1], ticktext=["0.0", "0.5", "1.0"],
             ),
         ),
     )
@@ -1037,6 +1038,12 @@ def new_figure_4(oss, params, overwrite=False):
     POLY_IDEAL_SYSTEM_PARAMETERS_FILE = "fig_4_hwp_qwp_poly_ideal_system_parameters.npy"
     POLY_IDEAL_COMPENSATED_ELLIPTICITY_FILE = "fig_4_hwp_qwp_poly_ideal_compensated_ellipticity.npy"
     POLY_IDEAL_COMPENSATED_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_poly_ideal_compensated_polarization_angle.npy"
+    POLY_REAL_INTENSITIES_FILE = "fig_4_hwp_qwp_poly_real_intensities.npy"
+    POLY_REAL_ELLIPTICITY_FILE = "fig_4_hwp_qwp_poly_real_ellipticity.npy"
+    POLY_REAL_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_poly_real_polarization_angle.npy"
+    POLY_REAL_SYSTEM_PARAMETERS_FILE = "fig_4_hwp_qwp_poly_real_system_parameters.npy"
+    POLY_REAL_COMPENSATED_ELLIPTICITY_FILE = "fig_4_hwp_qwp_poly_real_compensated_ellipticity.npy"
+    POLY_REAL_COMPENSATED_POLARIZATION_ANGLE_FILE = "fig_4_hwp_qwp_poly_real_compensated_polarization_angle.npy"
 
     hwp_angles, qwp_angles, pol_angles, primes = create_angle_arrays(params["hqp_size"])
     fit_rng = np.random.default_rng(params["fit_rng_seed"])
@@ -1234,7 +1241,57 @@ def new_figure_4(oss, params, overwrite=False):
         number_of_wavelengths=15,
     )
 
-    # IN PROGRESS ...
+    poly_real_intensities = hwp_and_qwp_polychromatic_scan(
+        oss,
+        params,
+        "Polychromatic and Real Waveplates (g)",
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        weights,
+        POLY_REAL_INTENSITIES_FILE,
+        overwrite=overwrite,
+    )
+
+    poly_real_ellipticity, poly_real_polarization_angle = ellipticity_map(
+        hwp_angles,
+        qwp_angles,
+        pol_angles,
+        poly_real_intensities,
+        POLY_REAL_ELLIPTICITY_FILE,
+        POLY_REAL_POLARIZATION_ANGLE_FILE,
+        overwrite=overwrite,
+    )
+
+    if overwrite or not os.path.exists(POLY_REAL_SYSTEM_PARAMETERS_FILE):
+        poly_real_i0, poly_real_g, poly_real_d, poly_real_t0, poly_real_p0, poly_real_a0 = compute_system_parameters(primes, np.sum(poly_real_intensities, axis=-1).transpose(1, 2, 0).ravel(), rng=fit_rng)
+        np.save(POLY_REAL_SYSTEM_PARAMETERS_FILE, (poly_real_i0, poly_real_g, poly_real_d, poly_real_t0, poly_real_p0, poly_real_a0))
+    else:
+        poly_real_i0, poly_real_g, poly_real_d, poly_real_t0, poly_real_p0, poly_real_a0 = np.load(POLY_REAL_SYSTEM_PARAMETERS_FILE)
+    print(f"Fig 4G | Poly & Real Fit: I_0={poly_real_i0:.6f}, gamma={poly_real_g:.6f}, delta={np.rad2deg(poly_real_d):.6f}°, theta_0={np.rad2deg(poly_real_t0):.6f}°, phi_0={np.rad2deg(poly_real_p0):.6f}°, alpha_0={np.rad2deg(poly_real_a0):.6f}°")
+
+    poly_real_p_sol_1, poly_real_p_sol_2 = phi_motor_for_linear_polarization(theta_motor=np.deg2rad(hwp_angles_for_p_sol), theta_0=poly_real_t0, phi_0=poly_real_p0, delta=poly_real_d, initial_guess=[np.deg2rad(90), np.deg2rad(0)])
+    poly_real_p_sol_1 = np.rad2deg(poly_real_p_sol_1)
+    poly_real_p_sol_2 = np.rad2deg(poly_real_p_sol_2)
+    if np.abs(np.mean(poly_real_p_sol_1)-90) < np.abs(np.mean(poly_real_p_sol_2)-90):
+        poly_real_p_sol = poly_real_p_sol_1
+    else:
+        poly_real_p_sol = poly_real_p_sol_2
+
+    poly_real_p_sol_el, poly_real_p_sol_aa = compensated_polychromatic_ellipticity_from_fit(
+        oss,
+        params,
+        "Polychromatic and Real Waveplates (h)",
+        hwp_angles_for_p_sol,
+        poly_real_p_sol,
+        pol_angles,
+        weights,
+        POLY_REAL_COMPENSATED_ELLIPTICITY_FILE,
+        POLY_REAL_COMPENSATED_POLARIZATION_ANGLE_FILE,
+        overwrite=overwrite,
+    )
+
+    poly_real_p_min_qwp_ind, poly_real_p_min_el, poly_real_p_min_aa = phi_minimum_from_ellipticity_map(qwp_angles, poly_real_ellipticity, poly_real_polarization_angle, search_low=60, search_high=120)
 
     # === Plotting === #
     mono_ideal_p_sol_aa = np.rad2deg(mono_ideal_p_sol_aa)
@@ -1243,6 +1300,8 @@ def new_figure_4(oss, params, overwrite=False):
     mono_real_p_min_aa = np.rad2deg(mono_real_p_min_aa)
     poly_ideal_p_sol_aa = np.rad2deg(poly_ideal_p_sol_aa)
     poly_ideal_p_min_aa = np.rad2deg(poly_ideal_p_min_aa)
+    poly_real_p_sol_aa = np.rad2deg(poly_real_p_sol_aa)
+    poly_real_p_min_aa = np.rad2deg(poly_real_p_min_aa)
 
     mono_ideal = dict(
         ellipticity=mono_ideal_ellipticity,
@@ -1271,8 +1330,17 @@ def new_figure_4(oss, params, overwrite=False):
         p_min_el=poly_ideal_p_min_el,
         p_min_aa=poly_ideal_p_min_aa,
     )
+    poly_real = dict(
+        ellipticity=poly_real_ellipticity,
+        p_sol=poly_real_p_sol,
+        p_min_qwp_ind=poly_real_p_min_qwp_ind,
+        p_sol_el=poly_real_p_sol_el,
+        p_sol_aa=poly_real_p_sol_aa,
+        p_min_el=poly_real_p_min_el,
+        p_min_aa=poly_real_p_min_aa,
+    )
     fig = plot_ellipticity_comparison(qwp_angles, hwp_angles, hwp_angles_for_p_sol,
-                                      [mono_ideal, mono_real, poly_ideal], CUSTOM_COLORSCALE)
+                                      [mono_ideal, mono_real, poly_ideal, poly_real], CUSTOM_COLORSCALE)
     fig.show()
     
 if __name__ == "__main__":
@@ -1305,7 +1373,7 @@ if __name__ == "__main__":
 
     ## === New Figure 4 ================== ##
     params = load_parameters("new_fig_4_params.yaml", oss)
-    new_figure_4(oss, params, overwrite=False)
+    new_figure_4(oss, params, overwrite=True)
     ## =============================== ##
 
     oss.save()
