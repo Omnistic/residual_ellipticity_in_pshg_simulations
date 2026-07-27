@@ -89,7 +89,7 @@ def simulation_single_map_fit(oss, params, sim_id=1):
 
     aggregated_intensities = []
     total_iters = len(hwp_angles) * len(qwp_angles) * len(pol_angles)
-    with tqdm(total=total_iters, leave=False, desc=params["sim_desc"][sim_id], position=1) as pbar:
+    with tqdm(total=total_iters, leave=True, desc=params["sim_desc"][sim_id], position=1) as pbar:
         for ha in hwp_angles:
             params["hwp"]["angle_surface"].Thickness = ha - true_theta_0
             for qa in qwp_angles:
@@ -122,7 +122,7 @@ def simulation_single_map_fit(oss, params, sim_id=1):
 def simulation_multi_map_fit(oss, params, sim_id=1, n_runs=1):
     results_list = []
 
-    for _ in tqdm(range(n_runs), desc="Runs", position=0, leave=False):
+    for _ in tqdm(range(n_runs), desc="Runs", position=0, leave=True):
         results = simulation_single_map_fit(oss, params, sim_id=sim_id)
 
         if abs(results.true_theta_0 - results.theta_0) > 45:
@@ -363,7 +363,7 @@ def half_waveplate_scan(oss, params, desc, hwp_angles, pol_angles, intensities_f
     if overwrite_intensities or not os.path.exists(intensities_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles)))
         total_iters = len(hwp_angles) * len(pol_angles)
-        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+        with tqdm(total=total_iters, leave=True, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
                 params["hwp"]["angle_surface"].Thickness = ha
                 for pa_ind, pa in enumerate(pol_angles):
@@ -396,7 +396,7 @@ def hwp_and_qwp_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, inte
     if overwrite or not os.path.exists(intensities_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles)))
         total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
-        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+        with tqdm(total=total_iters, leave=True, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
                 params["hwp"]["angle_surface"].Thickness = ha
                 for qa_ind, qa in enumerate(qwp_angles):
@@ -435,8 +435,8 @@ def ellipticity_map(hwp_angles, qwp_angles, pol_angles, intensities, ellipticity
 def hwp_and_qwp_polychromatic_scan(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, intensities_filename, overwrite=True):
     if overwrite or not os.path.exists(intensities_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(qwp_angles), len(weights)))
-        total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles) * len(weights)
-        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+        total_iters = len(hwp_angles) * len(pol_angles) * len(qwp_angles)
+        with tqdm(total=total_iters, leave=True, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
                 params["hwp"]["angle_surface"].Thickness = ha
                 for qa_ind, qa in enumerate(qwp_angles):
@@ -457,7 +457,7 @@ def compensated_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, 
     if overwrite or not os.path.exists(ellipticity_filename) or not os.path.exists(polarization_angle_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles)))
         total_iters = len(hwp_angles) * len(pol_angles)
-        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+        with tqdm(total=total_iters, leave=True, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
                 params["hwp"]["angle_surface"].Thickness = ha
                 params["qwp"]["angle_surface"].Thickness = qwp_angles[ha_ind]
@@ -485,8 +485,8 @@ def compensated_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, 
 def compensated_polychromatic_ellipticity_from_fit(oss, params, desc, hwp_angles, qwp_angles, pol_angles, weights, ellipticity_filename, polarization_angle_filename, overwrite=False):
     if overwrite or not os.path.exists(ellipticity_filename) or not os.path.exists(polarization_angle_filename):
         polarization_analyzer_intensities = np.empty((len(pol_angles), len(hwp_angles), len(weights)))
-        total_iters = len(hwp_angles) * len(pol_angles) * len(weights)
-        with tqdm(total=total_iters, leave=False, desc=desc) as pbar:
+        total_iters = len(hwp_angles) * len(pol_angles)
+        with tqdm(total=total_iters, leave=True, desc=desc) as pbar:
             for ha_ind, ha in enumerate(hwp_angles):
                 params["hwp"]["angle_surface"].Thickness = ha
                 params["qwp"]["angle_surface"].Thickness = qwp_angles[ha_ind]
@@ -1176,7 +1176,7 @@ def new_figure_4(oss, params, overwrite=False):
     wavelengths_in_um, weights = make_polychromatic(
         oss,
         params,
-        number_of_wavelengths=15,
+        number_of_wavelengths=11,
     )
 
     poly_ideal_intensities = hwp_and_qwp_polychromatic_scan(
@@ -1238,7 +1238,7 @@ def new_figure_4(oss, params, overwrite=False):
     wavelengths_in_um, weights = make_polychromatic(
         oss,
         params,
-        number_of_wavelengths=15,
+        number_of_wavelengths=11,
     )
 
     poly_real_intensities = hwp_and_qwp_polychromatic_scan(
