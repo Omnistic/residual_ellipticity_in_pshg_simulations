@@ -1,4 +1,4 @@
-hqp_size: [31, 61, 36]
+hqp_size: [46, 91, 60]
 fit_rng_seed: 1
 hwp:
   angle_comment: "hwp_angle"
