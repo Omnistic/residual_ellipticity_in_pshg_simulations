@@ -540,7 +540,7 @@ def unwrap_periodic(x, period=180):
 def gaussian(wavelength, center_wavelength, standard_deviation):
     return np.exp(-0.5 * ((wavelength - center_wavelength) / standard_deviation) ** 2)
 
-def make_polychromatic(oss, params, number_of_wavelengths, fwhm_bandwidth_in_nm=12.5, center_retardance=12.1, half_width_retardance=20):
+def make_polychromatic(oss, params, number_of_wavelengths, fwhm_bandwidth_in_nm=12.5, center_retardance=12.1, half_width_retardance=30):
     center_wavelength_in_nm = 880
 
     if number_of_wavelengths == 1:
@@ -889,6 +889,8 @@ def plot_ellipticity_comparison(
     line_blue = dict(color="rgba(0,114,178,1.0)", width=3)
     tick_font = dict(size=font_size)
 
+    panel_labels = ["Monochromatic + Ideal Waveplate", "Monochromatic + Real Waveplate", "Polychromatic + Ideal Waveplate", "Polychromatic + Real Waveplate"]
+
     fig = make_subplots(
         rows=n_rows, cols=2,
         column_widths=[0.5, 0.5],
@@ -918,6 +920,29 @@ def plot_ellipticity_comparison(
         fig.update_yaxes(title_text="HWP Motor Angle (deg)" if row == 1 else None, title_font=tick_font, range=y_range, tickfont=tick_font, tickmode="array", tickvals=y_ticks, scaleanchor=f"x{2*row-1}", scaleratio=1, constrain="domain", row=row, col=1)
         fig.update_xaxes(range=x_range_curve, tickfont=tick_font, tickmode="array", tickvals=x_ticks_curve, row=row, col=2)
         fig.update_yaxes(title_text="Ellipticity (-)" if row == 1 else None, title_font=tick_font, range=[0, 0.2], tickfont=tick_font, side="right", row=row, col=2)
+
+        fig.add_trace(
+            go.Scatter(
+                x=[166], y=[60],
+                mode="markers",
+                marker=dict(symbol="arrow-right", size=14, color="black"),
+                showlegend=False,
+                hoverinfo="skip",
+            ),
+            row=row, col=1,
+        )
+
+        fig.add_annotation(
+            xref=f"x{2*row}", yref=f"y{2*row}",
+            x=90, y=0.15,
+            xanchor="center", yanchor="middle",
+            text=panel_labels[i],
+            showarrow=False,
+            font=dict(size=font_size - 2, color="black"),
+            bgcolor="rgba(0,0,0,0.08)",
+            bordercolor="rgba(0,0,0,0)",
+            borderpad=4,
+        )
 
     fig.update_xaxes(title_text="QWP Motor Angle (deg)", title_font=tick_font, row=n_rows, col=1)
     fig.update_xaxes(title_text="Relative Polarization Angle (deg)", title_font=tick_font, row=n_rows, col=2)
@@ -1330,7 +1355,7 @@ def new_table_XX(oss, params):
     print_multi_map_fit_results(sim, print_single_runs=True)
 
 def supplementary_figure_ZZ(oss, params, overwrite=False):
-    dichroic_retardance_half_widths = [0, 10, 20, 30, 40]
+    dichroic_retardance_half_widths = [0, 10, 20, 30, 40, 50, 60]
 
     hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
 
@@ -1374,12 +1399,13 @@ def supplementary_figure_ZZ(oss, params, overwrite=False):
         results.append(dict(half_width_retardance=drhw, p_min_aa=p_min_aa_deg, p_min_el=p_min_el))
 
     # === Plotting: stacked ellipticity profiles, styled like sfig_XX panel B === #
-    selected_colors = ["black", COLORS[5] + ", 1)", COLORS[2] + ", 1)", COLORS[6] + ", 1)", COLORS[4] + ", 1)"]
-    selected_dashes = ["dot", "dashdot", "longdash", "solid", "dash"]
+    selected_colors = ["black", COLORS[5] + ", 1)", COLORS[2] + ", 1)", COLORS[6] + ", 1)",
+                       COLORS[4] + ", 1)", COLORS[0] + ", 1)", COLORS[1] + ", 1)"]
+    selected_dashes = ["dot", "dashdot", "longdash", "solid", "dash", "dashdot", "dot"]
 
     fig = go.Figure()
     for i, res in enumerate(results):
-        label = f"\u00b1{res['half_width_retardance']}\u00b0"
+        label = f"(12.1\u00b1{res['half_width_retardance']})\u00b0"
 
         order = np.argsort(res["p_min_aa"])
         x_sorted = res["p_min_aa"][order]
@@ -1405,16 +1431,16 @@ def supplementary_figure_ZZ(oss, params, overwrite=False):
         tickfont=dict(size=16),
     )
     fig.update_layout(
-        width=600,
-        height=450,
+        width=1000,
+        height=500,
         template="simple_white",
         font_family="crm12",
         font=dict(size=20),
-        legend=dict(title="Dichroic retardance half-width", font=dict(size=16)),
+        legend=dict(title="DC Retardance", font=dict(size=16)),
         margin=dict(l=70, r=50, t=50, b=70),
     )
     fig.show()
-    fig.write_image("sfig_ZZ.pdf", width=600, height=450)
+    fig.write_image("sfig_ZZ.pdf", width=1000, height=500)
 
     return results
 
@@ -1422,8 +1448,9 @@ def supplementary_figure_WW(oss, params, overwrite=False):
     # (label, number_of_wavelengths, fwhm_bandwidth_in_nm)
     bandwidth_cases = [
         ("Monochromatic", 1, None),
-        ("1 nm", 3, 1.0),
+        ("2 nm", 3, 2.0),
         ("12.5 nm", 3, 12.5),
+        ("25 nm", 3, 25.0),
     ]
     center_retardance = 12.1
     # Fixed dichroic dispersion slope (deg/nm), chosen so that 12.5 nm FWHM
@@ -1485,8 +1512,8 @@ def supplementary_figure_WW(oss, params, overwrite=False):
         results.append(dict(label=label, p_min_aa=p_min_aa_deg, p_min_el=p_min_el))
 
     # === Plotting: stacked ellipticity profiles, styled like sfig_XX panel B === #
-    selected_colors = ["black", COLORS[2] + ", 1)", COLORS[1] + ", 1)"]
-    selected_dashes = ["dot", "longdash", "solid"]
+    selected_colors = ["black", COLORS[2] + ", 1)", COLORS[1] + ", 1)", COLORS[5] + ", 1)"]
+    selected_dashes = ["dot", "longdash", "solid", "dashdot"]
 
     fig = go.Figure()
     for i, res in enumerate(results):
@@ -1514,25 +1541,25 @@ def supplementary_figure_WW(oss, params, overwrite=False):
         tickfont=dict(size=16),
     )
     fig.update_layout(
-        width=600,
-        height=450,
+        width=1000,
+        height=500,
         template="simple_white",
         font_family="crm12",
         font=dict(size=20),
-        legend=dict(title="Laser bandwidth (FWHM)", font=dict(size=16)),
+        legend=dict(title="Laser Bandwidth (FWHM)", font=dict(size=16)),
         margin=dict(l=70, r=50, t=50, b=70),
     )
     fig.show()
-    fig.write_image("sfig_WW.pdf", width=600, height=450)
+    fig.write_image("sfig_WW.pdf", width=1000, height=500)
 
     return results
 
 if __name__ == "__main__":
     # === Table XX =================== #
-    oss = connect_opticstudio("revised_monochromatic.zmx")
-    params = load_parameters("tab_XX.yaml", oss)
-    new_table_XX(oss, params)
-    oss.save()
+    # oss = connect_opticstudio("revised_monochromatic.zmx")
+    # params = load_parameters("tab_XX.yaml", oss)
+    # new_table_XX(oss, params)
+    # oss.save()
     # ================================ #
 
     ## === Figure 2b ================= ##
@@ -1543,10 +1570,10 @@ if __name__ == "__main__":
     ## =============================== ##
 
     ## === New Figure 4 ============== ##
-    # oss = connect_opticstudio("revised_polychromatic.zmx")
-    # params = load_parameters("new_fig_4_params.yaml", oss)
-    # new_figure_4(oss, params, overwrite=True)
-    # oss.save()
+    oss = connect_opticstudio("revised_polychromatic.zmx")
+    params = load_parameters("new_fig_4_params.yaml", oss)
+    new_figure_4(oss, params, overwrite=True)
+    oss.save()
     ## =============================== ##
 
     ## === Supplementary Figure XX === ##
@@ -1557,13 +1584,13 @@ if __name__ == "__main__":
     ## === Supplementary Figure ZZ === ##
     # oss = connect_opticstudio("revised_polychromatic.zmx")
     # params = load_parameters("sfig_ZZ_params.yaml", oss)
-    # supplementary_figure_ZZ(oss, params, overwrite=True)
+    # supplementary_figure_ZZ(oss, params, overwrite=False)
     # oss.save()
     ## =============================== ##
 
     ## === Supplementary Figure WW === ##
     # oss = connect_opticstudio("revised_polychromatic.zmx")
     # params = load_parameters("sfig_WW_params.yaml", oss)
-    # supplementary_figure_WW(oss, params, overwrite=True)
+    # supplementary_figure_WW(oss, params, overwrite=False)
     # oss.save()
     ## =============================== ##
