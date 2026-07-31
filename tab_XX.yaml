@@ -6,10 +6,10 @@ sim_desc:
   1: "Five mirrors, ideal waveplates"
   2: "Five mirrors, dichroic, ideal waveplates"
   3: "Five mirrors, dichroic, real waveplates"
-dic_rng_seed: 5
+dic_rng_seed: null
 hqp_rng_seed: null
-fit_rng_seed: null
-hqp_size: [10, 19, 18]
+fit_rng_seed: 1
+hqp_size: [46, 91, 60]
 hwp:
   angle_comment: "hwp_angle"
   retardance_comment: "hwp_retardance"

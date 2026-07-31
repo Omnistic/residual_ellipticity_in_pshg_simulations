@@ -1,38 +1,12 @@
 import os, yaml
 from tqdm import tqdm
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import numpy as np
 from numpy import sin, cos
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.optimize import curve_fit, root
 import zospy as zp
-
-# HWP_ONLY_CONFIG = 1
-# HWP_ANGLE_COMMENT = "hwp_angle"
-# HWP_RETARDANCE_COMMENT = "hwp_retardance"
-
-# QWP_ANGLE_COMMENT = "qwp_angle"
-# QWP_RETARDANCE_COMMENT = "qwp_retardance"
-
-# IDEAL_HWP_RETARDANCE_IN_WAVES = 0.5
-# AHWP10M980_RETARDANCE_IN_WAVES_AT_880 = 0.51597
-# AQWP10M980_RETARDANCE_IN_WAVES_AT_880 = 0.25798
-
-# ELLIPTICITY_MFE_OPERAND = 8
-# ANGLE_MFE_OPERAND = 6
-
-# LASER_FWHM_IN_NM = 20
-# LASER_CENTER_IN_NM = 880
-# NUM_WAVELENGTHS = 9
-
-# DICHROIC_ANGLE_COMMENT = "dichroic_angle"
-# DICHROIC_RETARDANCE_COMMENT = "dichroic_retardance"
-# DICHROIC_CENTER_RETARDANCE_IN_DEG = 12.1
-# DICHROIC_FW_SPREAD_IN_DEG = 50
-# DICHROIC_ANGLE_IN_DEG = 0
-
-# POLARIZER_ANGLE_COMMENT = "linear_polarizer_angle"
 
 COLORS = [
     "rgba(230, 159, 0",
@@ -51,6 +25,28 @@ CUSTOM_COLORSCALE = [
 ]
 
 @dataclass
+class GroundTruthParam:
+    mode: str = "rng"       # "fixed" or "rng"
+    value: float = None     # used if mode == "fixed"
+    low: float = None       # used if mode == "rng"
+    high: float = None      # used if mode == "rng"
+
+    def resolve(self, rng):
+        if self.mode == "fixed":
+            return self.value
+        elif self.mode == "rng":
+            return rng.uniform(self.low, self.high)
+        else:
+            raise ValueError(f"Unknown ground truth mode '{self.mode}'")
+
+@dataclass
+class GroundTruthConfig:
+    theta_0: GroundTruthParam = field(default_factory=lambda: GroundTruthParam(mode="rng", low=0, high=90))
+    phi_0: GroundTruthParam = field(default_factory=lambda: GroundTruthParam(mode="rng", low=0, high=90))
+    alpha_0: GroundTruthParam = field(default_factory=lambda: GroundTruthParam(mode="rng", low=0, high=180))
+    dic_retardance: GroundTruthParam = field(default_factory=lambda: GroundTruthParam(mode="rng", low=-10, high=20))
+
+@dataclass
 class SimulationSingleMapResults:
     title: str
     intensity_0: float
@@ -66,22 +62,24 @@ class SimulationSingleMapResults:
     theta_0_unwrapped: bool = False
     alpha_0_unwrapped: bool = False
 
-def simulation_single_map_fit(oss, params, sim_id=1):
+def simulation_single_map_fit(oss, params, sim_id=1, ground_truth: GroundTruthConfig = None):
     hqp_rng = np.random.default_rng(params["hqp_rng_seed"])
     dic_rng = np.random.default_rng(params["dic_rng_seed"])
     fit_rng = np.random.default_rng(params["fit_rng_seed"])
 
     oss.MCE.SetCurrentConfiguration(sim_id)
 
-    true_theta_0 = hqp_rng.uniform(0, 90)
-    true_phi_0 = hqp_rng.uniform(0, 90)
-    true_alpha_0 = hqp_rng.uniform(0, 180)
+    if ground_truth is None:
+        ground_truth = GroundTruthConfig()
+
+    true_theta_0 = ground_truth.theta_0.resolve(hqp_rng)
+    true_phi_0 = ground_truth.phi_0.resolve(hqp_rng)
+    true_alpha_0 = ground_truth.alpha_0.resolve(hqp_rng)
+
     if sim_id == 1:
         true_dic_retardance = 0
-    else:    
-        true_dic_retardance = dic_rng.uniform(-10, 20)
-
-    # true_dic_retardance = 20
+    else:
+        true_dic_retardance = ground_truth.dic_retardance.resolve(dic_rng)
 
     params["dic"]["retardance_mc_operand"].GetCellAt(sim_id).DoubleValue = true_dic_retardance
 
@@ -119,11 +117,11 @@ def simulation_single_map_fit(oss, params, sim_id=1):
 
     return results
 
-def simulation_multi_map_fit(oss, params, sim_id=1, n_runs=1):
+def simulation_multi_map_fit(oss, params, sim_id=1, n_runs=1, ground_truth: GroundTruthConfig = None):
     results_list = []
 
     for _ in tqdm(range(n_runs), desc="Runs", position=0, leave=True):
-        results = simulation_single_map_fit(oss, params, sim_id=sim_id)
+        results = simulation_single_map_fit(oss, params, sim_id=sim_id, ground_truth=ground_truth)
 
         if abs(results.true_theta_0 - results.theta_0) > 45:
             results.theta_0_unwrapped = True
@@ -200,13 +198,21 @@ def print_single_map_fit_results(results: SimulationSingleMapResults):
     table_width = n_cols * w + (n_cols - 1)
 
     title = f" Simulation: {results.title} "
-    print(f"{title:=^{table_width}}")
-    print("")
-    print("|".join(f"{h:<{w}}" for h in headers))
-    print("+".join("-" * w for _ in range(n_cols)))
-    print("|".join(fmt_cell(v, w, precision) for v in data))
-    print("|".join(fmt_cell(v, w, precision) for v in ground_truth))
-    print("")
+
+    lines = []
+    lines.append(f"{title:=^{table_width}}")
+    lines.append("")
+    lines.append("|".join(f"{h:<{w}}" for h in headers))
+    lines.append("+".join("-" * w for _ in range(n_cols)))
+    lines.append("|".join(fmt_cell(v, w, precision) for v in data))
+    lines.append("|".join(fmt_cell(v, w, precision) for v in ground_truth))
+    lines.append("")
+
+    for line in lines:
+        print(line)
+
+    with open("tab_XX.txt", "a") as f:
+        f.write("\n".join(lines) + "\n")
 
 def print_multi_map_fit_results(results_list, print_single_runs=False):
     def fmt_cell(v, w, precision):
@@ -231,12 +237,20 @@ def print_multi_map_fit_results(results_list, print_single_runs=False):
     table_width = n_cols * w + (n_cols - 1)
 
     title = f" Simulation: {results_list[0].title} (n_runs={len(results_list)})"
-    print(f"{title:=^{table_width}}")
-    print("")
-    print("|".join(f"{h:<{w}}" for h in headers))
-    print("+".join("-" * w for _ in range(n_cols)))
-    print("|".join(fmt_cell(v, w, precision) for v in data))
-    print("")
+
+    lines = []
+    lines.append(f"{title:=^{table_width}}")
+    lines.append("")
+    lines.append("|".join(f"{h:<{w}}" for h in headers))
+    lines.append("+".join("-" * w for _ in range(n_cols)))
+    lines.append("|".join(fmt_cell(v, w, precision) for v in data))
+    lines.append("")
+
+    for line in lines:
+        print(line)
+
+    with open("tab_XX.txt", "a") as f:
+        f.write("\n".join(lines) + "\n")
 
     if print_single_runs:
         for results in results_list:
@@ -526,9 +540,8 @@ def unwrap_periodic(x, period=180):
 def gaussian(wavelength, center_wavelength, standard_deviation):
     return np.exp(-0.5 * ((wavelength - center_wavelength) / standard_deviation) ** 2)
 
-def make_polychromatic(oss, params, number_of_wavelengths):
+def make_polychromatic(oss, params, number_of_wavelengths, fwhm_bandwidth_in_nm=12.5, center_retardance=12.1, half_width_retardance=20):
     center_wavelength_in_nm = 880
-    fwhm_bandwidth_in_nm = 12.5
 
     if number_of_wavelengths == 1:
         wavelengths_in_nm = np.array([center_wavelength_in_nm])
@@ -541,8 +554,6 @@ def make_polychromatic(oss, params, number_of_wavelengths):
         weights = gaussian(wavelengths_in_nm, center_wavelength_in_nm, standard_deviation_in_nm)
         weights /= np.sum(weights)
 
-    center_retardance = 12.1
-    half_width_retardance = 25
     if number_of_wavelengths == 1:
         retardances = np.array([center_retardance])
     else:
@@ -711,91 +722,6 @@ def figure_2b(oss, params, overwrite_intensities=True):
     )
     fig.show()
     fig.write_image("revised_fig_2b.pdf", width=500, height=400)
-
-def figure_4(oss, params, overwrite_intensities=True):
-    hwp_angles = np.linspace(0, 90, params["hqp_size"][0])
-    qwp_angles = np.linspace(0, 180, params["hqp_size"][1])
-    pol_angles = np.linspace(0, 359, params["hqp_size"][2])
-
-    oss.MCE.SetCurrentConfiguration(params["monochromatic"]["config"])
-    hwp_qwp_monochromatic_intensities_filename = "hwp_qwp_monochromatic_intensities.npy"
-    hwp_qwp_monochromatic_ellipticity = hwp_and_qwp_scan(
-        oss,
-        params,
-        params["monochromatic"]["desc"],
-        hwp_angles,
-        qwp_angles,
-        pol_angles,
-        hwp_qwp_monochromatic_intensities_filename,
-        overwrite_intensities=overwrite_intensities,
-    )
-
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        x_title="QWP Motor Angle (deg)",
-        y_title="HWP Motor Angle (deg)",
-        subplot_titles=("Monochromatic", "Polychromatic")
-    )
-    fig.add_trace(go.Heatmap(
-        z=hwp_qwp_monochromatic_ellipticity,
-        x=qwp_angles,
-        y=hwp_angles,
-        coloraxis="coloraxis"
-    ), row=1, col=1)
-    fig.update_xaxes(
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=1, col=1
-    )
-    fig.update_xaxes(
-        range=[0, 180],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90, 120, 150, 180],
-        row=2, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=1, col=1
-    )
-    fig.update_yaxes(
-        range=[0, 90],
-        tickfont=dict(size=16),
-        tickmode="array",
-        tickvals=[0, 30, 60, 90],
-        row=2, col=1
-    )
-    fig.update_layout(
-        width=500,
-        height=400,
-        margin=dict(l=70, r=50, t=50, b=70),
-        template="simple_white",
-        font_family="crm12",
-        coloraxis=dict(
-            cmin=0,
-            cmax=1,
-            colorscale=CUSTOM_COLORSCALE,
-            colorbar_lenmode="pixels",
-            colorbar_len=280,
-            colorbar_thickness=15,
-            colorbar_title="Ellipticity (-)",
-            colorbar_title_font=dict(size=20),
-            colorbar_tickfont=dict(size=16),
-            colorbar_tickmode="array",
-            colorbar_tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1],
-            colorbar_ticktext=["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"],
-        ),
-        annotations=[
-            dict(
-                font=dict(size=20)
-            ) for annotation in fig.layout.annotations
-        ]
-    )
-    fig.show()
 
 def supplementary_figure_XX(params, overwrite=False):
     hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
@@ -1176,7 +1102,7 @@ def new_figure_4(oss, params, overwrite=False):
     wavelengths_in_um, weights = make_polychromatic(
         oss,
         params,
-        number_of_wavelengths=11,
+        number_of_wavelengths=15,
     )
 
     poly_ideal_intensities = hwp_and_qwp_polychromatic_scan(
@@ -1238,7 +1164,7 @@ def new_figure_4(oss, params, overwrite=False):
     wavelengths_in_um, weights = make_polychromatic(
         oss,
         params,
-        number_of_wavelengths=11,
+        number_of_wavelengths=15,
     )
 
     poly_real_intensities = hwp_and_qwp_polychromatic_scan(
@@ -1342,43 +1268,302 @@ def new_figure_4(oss, params, overwrite=False):
     fig = plot_ellipticity_comparison(qwp_angles, hwp_angles, hwp_angles_for_p_sol,
                                       [mono_ideal, mono_real, poly_ideal, poly_real], CUSTOM_COLORSCALE)
     fig.show()
-    
+
+def new_table_XX(oss, params):
+    n_runs = 5
+    gt_before = GroundTruthConfig(
+        theta_0=GroundTruthParam(mode="fixed", value=18),
+        phi_0=GroundTruthParam(mode="fixed", value=11),
+        alpha_0=GroundTruthParam(mode="fixed", value=33),
+        dic_retardance=GroundTruthParam(mode="fixed", value=28),
+    )
+    gt_after = GroundTruthConfig(
+        theta_0=GroundTruthParam(mode="fixed", value=18),
+        phi_0=GroundTruthParam(mode="fixed", value=11),
+        alpha_0=GroundTruthParam(mode="fixed", value=33),
+        dic_retardance=GroundTruthParam(mode="fixed", value=18),
+    )
+
+    # Mirrors only, shows retardance of mirrors (dichroic retardance is ignored!)
+    sim = simulation_multi_map_fit(
+        oss,
+        params,
+        sim_id=params["sim"]["five_mirrors_ideal_waveplates"],
+        n_runs=n_runs,
+        ground_truth=gt_before,
+    )
+    print_multi_map_fit_results(sim, print_single_runs=True)
+    # Ideal waveplates, before and after, shows all parameters are fitted exactly!
+    sim = simulation_multi_map_fit(
+        oss,
+        params,
+        sim_id=params["sim"]["five_mirrors_and_dichroic_ideal_waveplates"],
+        n_runs=n_runs,
+        ground_truth=gt_before,
+    )
+    print_multi_map_fit_results(sim, print_single_runs=True)
+    sim = simulation_multi_map_fit(
+        oss,
+        params,
+        sim_id=params["sim"]["five_mirrors_and_dichroic_ideal_waveplates"],
+        n_runs=n_runs,
+        ground_truth=gt_after,
+    )
+    print_multi_map_fit_results(sim, print_single_runs=True)
+    # Real waveplates, before and after, shows some parameters are fitted with significant error: theta_0 and alpha_0
+    # phi_0 remains accurately fitted, and the system retardance is off by about 1 degree
+    sim = simulation_multi_map_fit(
+        oss,
+        params,
+        sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
+        n_runs=n_runs,
+        ground_truth=gt_before,
+    )
+    print_multi_map_fit_results(sim, print_single_runs=True)
+    sim = simulation_multi_map_fit(
+        oss,
+        params,
+        sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
+        n_runs=n_runs,
+        ground_truth=gt_after,
+    )
+    print_multi_map_fit_results(sim, print_single_runs=True)
+
+def supplementary_figure_ZZ(oss, params, overwrite=False):
+    dichroic_retardance_half_widths = [0, 10, 20, 30, 40]
+
+    hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
+
+    # Real (manufacturer-specified) waveplate retardances, matching the experimental system
+    params["hwp"]["retardance_surface"].Thickness = 185.7492
+    params["qwp"]["retardance_surface"].Thickness = 92.87280
+
+    results = []
+
+    for drhw in dichroic_retardance_half_widths:
+        tag = f"drhw{drhw}"
+        intensities_file = f"sfig_ZZ_poly_real_intensities_{tag}.npy"
+        ellipticity_file = f"sfig_ZZ_poly_real_ellipticity_{tag}.npy"
+        polarization_angle_file = f"sfig_ZZ_poly_real_polarization_angle_{tag}.npy"
+
+        wavelengths_in_um, weights = make_polychromatic(
+            oss,
+            params,
+            number_of_wavelengths=3,
+            center_retardance=0,
+            half_width_retardance=drhw,
+        )
+
+        intensities = hwp_and_qwp_polychromatic_scan(
+            oss, params, f"Polychromatic Real Waveplates (dichroic \u00b1{drhw} deg)",
+            hwp_angles, qwp_angles, pol_angles, weights,
+            intensities_file, overwrite=overwrite,
+        )
+
+        ellipticity, polarization_angle = ellipticity_map(
+            hwp_angles, qwp_angles, pol_angles, intensities,
+            ellipticity_file, polarization_angle_file, overwrite=overwrite,
+        )
+
+        p_min_qwp_ind, p_min_el, p_min_aa = phi_minimum_from_ellipticity_map(
+            qwp_angles, ellipticity, polarization_angle, search_low=60, search_high=120
+        )
+
+        p_min_aa_deg = unwrap_periodic(np.rad2deg(p_min_aa))
+
+        results.append(dict(half_width_retardance=drhw, p_min_aa=p_min_aa_deg, p_min_el=p_min_el))
+
+    # === Plotting: stacked ellipticity profiles, styled like sfig_XX panel B === #
+    selected_colors = ["black", COLORS[5] + ", 1)", COLORS[2] + ", 1)", COLORS[6] + ", 1)", COLORS[4] + ", 1)"]
+    selected_dashes = ["dot", "dashdot", "longdash", "solid", "dash"]
+
+    fig = go.Figure()
+    for i, res in enumerate(results):
+        label = f"\u00b1{res['half_width_retardance']}\u00b0"
+
+        order = np.argsort(res["p_min_aa"])
+        x_sorted = res["p_min_aa"][order]
+        y_sorted = res["p_min_el"][order]
+
+        fig.add_trace(go.Scatter(
+            x=x_sorted,
+            y=y_sorted,
+            mode="lines",
+            line=dict(color=selected_colors[i], width=3, dash=selected_dashes[i]),
+            name=label,
+        ))
+
+    fig.update_xaxes(
+        title_text="Relative Polarization Angle (deg)",
+        tick0=0, dtick=30,
+        title_font=dict(size=20),
+        tickfont=dict(size=16),
+    )
+    fig.update_yaxes(
+        title_text="Minimum Ellipticity (-)",
+        title_font=dict(size=20),
+        tickfont=dict(size=16),
+    )
+    fig.update_layout(
+        width=600,
+        height=450,
+        template="simple_white",
+        font_family="crm12",
+        font=dict(size=20),
+        legend=dict(title="Dichroic retardance half-width", font=dict(size=16)),
+        margin=dict(l=70, r=50, t=50, b=70),
+    )
+    fig.show()
+    fig.write_image("sfig_ZZ.pdf", width=600, height=450)
+
+    return results
+
+def supplementary_figure_WW(oss, params, overwrite=False):
+    # (label, number_of_wavelengths, fwhm_bandwidth_in_nm)
+    bandwidth_cases = [
+        ("Monochromatic", 1, None),
+        ("1 nm", 3, 1.0),
+        ("12.5 nm", 3, 12.5),
+    ]
+    center_retardance = 12.1
+    # Fixed dichroic dispersion slope (deg/nm), chosen so that 12.5 nm FWHM
+    # reproduces the original ±20 deg half-width spread used elsewhere.
+    reference_fwhm_in_nm = 12.5
+    reference_half_width_retardance = 20
+    reference_std_in_nm = reference_fwhm_in_nm / (2 * np.sqrt(2 * np.log(2)))
+    retardance_slope_per_nm = reference_half_width_retardance / (2 * reference_std_in_nm)
+
+    hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
+
+    # Real (manufacturer-specified) waveplate retardances, matching the experimental system
+    params["hwp"]["retardance_surface"].Thickness = 185.7492
+    params["qwp"]["retardance_surface"].Thickness = 92.87280
+
+    results = []
+
+    for label, n_wavelengths, fwhm in bandwidth_cases:
+        tag = label.replace(" ", "").replace(".", "p")
+        intensities_file = f"sfig_WW_poly_real_intensities_{tag}.npy"
+        ellipticity_file = f"sfig_WW_poly_real_ellipticity_{tag}.npy"
+        polarization_angle_file = f"sfig_WW_poly_real_polarization_angle_{tag}.npy"
+
+        if fwhm is None:
+            half_width_retardance = 0  # unused (single wavelength -> center_retardance only)
+        else:
+            std_in_nm = fwhm / (2 * np.sqrt(2 * np.log(2)))
+            half_width_retardance = retardance_slope_per_nm * 2 * std_in_nm
+
+        make_polychromatic_kwargs = dict(
+            oss=oss,
+            params=params,
+            number_of_wavelengths=n_wavelengths,
+            center_retardance=center_retardance,
+            half_width_retardance=half_width_retardance,
+        )
+        if fwhm is not None:
+            make_polychromatic_kwargs["fwhm_bandwidth_in_nm"] = fwhm
+
+        wavelengths_in_um, weights = make_polychromatic(**make_polychromatic_kwargs)
+
+        intensities = hwp_and_qwp_polychromatic_scan(
+            oss, params, f"Real Waveplates ({label})",
+            hwp_angles, qwp_angles, pol_angles, weights,
+            intensities_file, overwrite=overwrite,
+        )
+
+        ellipticity, polarization_angle = ellipticity_map(
+            hwp_angles, qwp_angles, pol_angles, intensities,
+            ellipticity_file, polarization_angle_file, overwrite=overwrite,
+        )
+
+        p_min_qwp_ind, p_min_el, p_min_aa = phi_minimum_from_ellipticity_map(
+            qwp_angles, ellipticity, polarization_angle, search_low=60, search_high=120
+        )
+
+        p_min_aa_deg = unwrap_periodic(np.rad2deg(p_min_aa))
+
+        results.append(dict(label=label, p_min_aa=p_min_aa_deg, p_min_el=p_min_el))
+
+    # === Plotting: stacked ellipticity profiles, styled like sfig_XX panel B === #
+    selected_colors = ["black", COLORS[2] + ", 1)", COLORS[1] + ", 1)"]
+    selected_dashes = ["dot", "longdash", "solid"]
+
+    fig = go.Figure()
+    for i, res in enumerate(results):
+        order = np.argsort(res["p_min_aa"])
+        x_sorted = res["p_min_aa"][order]
+        y_sorted = res["p_min_el"][order]
+
+        fig.add_trace(go.Scatter(
+            x=x_sorted,
+            y=y_sorted,
+            mode="lines",
+            line=dict(color=selected_colors[i], width=3, dash=selected_dashes[i]),
+            name=res["label"],
+        ))
+
+    fig.update_xaxes(
+        title_text="Relative Polarization Angle (deg)",
+        tick0=0, dtick=30,
+        title_font=dict(size=20),
+        tickfont=dict(size=16),
+    )
+    fig.update_yaxes(
+        title_text="Minimum Ellipticity (-)",
+        title_font=dict(size=20),
+        tickfont=dict(size=16),
+    )
+    fig.update_layout(
+        width=600,
+        height=450,
+        template="simple_white",
+        font_family="crm12",
+        font=dict(size=20),
+        legend=dict(title="Laser bandwidth (FWHM)", font=dict(size=16)),
+        margin=dict(l=70, r=50, t=50, b=70),
+    )
+    fig.show()
+    fig.write_image("sfig_WW.pdf", width=600, height=450)
+
+    return results
+
 if __name__ == "__main__":
+    # === Table XX =================== #
+    oss = connect_opticstudio("revised_monochromatic.zmx")
+    params = load_parameters("tab_XX.yaml", oss)
+    new_table_XX(oss, params)
+    oss.save()
+    # ================================ #
+
+    ## === Figure 2b ================= ##
     # oss = connect_opticstudio("revised_monochromatic.zmx")
-
-    # === Simulation 1-4 : Fit Variations === #
-    # params = load_parameters("sim_1_4_params.yaml", oss)
-    # sim = simulation_multi_map_fit(
-    #     oss,
-    #     params,
-    #     sim_id=params["sim"]["five_mirrors_and_dichroic_real_waveplates"],
-    #     n_runs=1,
-    # )
-    # print_multi_map_fit_results(sim, print_single_runs=True)
-    # ======================================= #
-
-    ## === Figure 2b === ##
     # params = load_parameters("fig_2b_params.yaml", oss)
     # figure_2b(oss, params, overwrite_intensities=False)
-    ## =============================== ##
-
-    ## === Figure 4 ================== ##
-    # params = load_parameters("fig_4_params.yaml", oss)
-    # figure_4(oss, params, overwrite_intensities=False)
-    ## =============================== ##
-
     # oss.save()
-
-    oss = connect_opticstudio("revised_polychromatic.zmx")
-
-    ## === New Figure 4 ================== ##
-    params = load_parameters("new_fig_4_params.yaml", oss)
-    new_figure_4(oss, params, overwrite=True)
     ## =============================== ##
 
-    oss.save()
+    ## === New Figure 4 ============== ##
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    # params = load_parameters("new_fig_4_params.yaml", oss)
+    # new_figure_4(oss, params, overwrite=True)
+    # oss.save()
+    ## =============================== ##
 
     ## === Supplementary Figure XX === ##
     # params = load_parameters("sfig_XX_params.yaml")
     # supplementary_figure_XX(params)
+    ## =============================== ##
+
+    ## === Supplementary Figure ZZ === ##
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    # params = load_parameters("sfig_ZZ_params.yaml", oss)
+    # supplementary_figure_ZZ(oss, params, overwrite=True)
+    # oss.save()
+    ## =============================== ##
+
+    ## === Supplementary Figure WW === ##
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    # params = load_parameters("sfig_WW_params.yaml", oss)
+    # supplementary_figure_WW(oss, params, overwrite=True)
+    # oss.save()
     ## =============================== ##
