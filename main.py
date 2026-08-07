@@ -651,16 +651,16 @@ def figure_2b(oss, params, overwrite_intensities=True):
             color=COLORS[2]+", 1)"
         )
     ))
-    fig.add_trace(go.Scatter(
-        x=hwp_qwp_real_wp_alpha_max,
-        y=hwp_qwp_real_wp_ellipticity,
-        mode="lines",
-        name="0.516𝜆 + 0.258𝜆",
-        line=dict(
-            width=2,
-            color=COLORS[1]+", 1)"
-        )
-    ))
+    # fig.add_trace(go.Scatter(
+    #     x=hwp_qwp_real_wp_alpha_max,
+    #     y=hwp_qwp_real_wp_ellipticity,
+    #     mode="lines",
+    #     name="0.516𝜆 + 0.258𝜆",
+    #     line=dict(
+    #         width=2,
+    #         color=COLORS[1]+", 1)"
+    #     )
+    # ))
     fig.add_trace(go.Scatter(
         x=[0, 180],
         y=[np.amax(hwp_only_ideal_wp_ellipticity), np.amax(hwp_only_ideal_wp_ellipticity)],
@@ -672,18 +672,18 @@ def figure_2b(oss, params, overwrite_intensities=True):
         ),
         showlegend=False
     ))
-    fig.add_annotation(
-        x=135,
-        y=0.001,
-        axref="x",
-        ayref="y",
-        ax=140,
-        ay=0.04,
-        arrowcolor=COLORS[1]+", 1)",
-        arrowsize=1,
-        arrowwidth=4,
-        arrowhead=1,
-    )
+    # fig.add_annotation(
+    #     x=135,
+    #     y=0.001,
+    #     axref="x",
+    #     ayref="y",
+    #     ax=140,
+    #     ay=0.04,
+    #     arrowcolor=COLORS[1]+", 1)",
+    #     arrowsize=1,
+    #     arrowwidth=4,
+    #     arrowhead=1,
+    # )
     fig.update_xaxes(
         title_text="Relative Polarization Angle (deg)",
         title_font=dict(size=20),
@@ -1293,6 +1293,7 @@ def new_figure_4(oss, params, overwrite=False):
     fig = plot_ellipticity_comparison(qwp_angles, hwp_angles, hwp_angles_for_p_sol,
                                       [mono_ideal, mono_real, poly_ideal, poly_real], CUSTOM_COLORSCALE)
     fig.show()
+    fig.write_image("fig_4.pdf", width=1000, height=fig.layout.height)
 
 def new_table_XX(oss, params):
     n_runs = 5
@@ -1354,7 +1355,7 @@ def new_table_XX(oss, params):
     )
     print_multi_map_fit_results(sim, print_single_runs=True)
 
-def supplementary_figure_ZZ(oss, params, overwrite=False):
+def supplementary_figure_8(oss, params, overwrite=False):
     dichroic_retardance_half_widths = [0, 10, 20, 30, 40, 50, 60]
 
     hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
@@ -1367,15 +1368,15 @@ def supplementary_figure_ZZ(oss, params, overwrite=False):
 
     for drhw in dichroic_retardance_half_widths:
         tag = f"drhw{drhw}"
-        intensities_file = f"sfig_ZZ_poly_real_intensities_{tag}.npy"
-        ellipticity_file = f"sfig_ZZ_poly_real_ellipticity_{tag}.npy"
-        polarization_angle_file = f"sfig_ZZ_poly_real_polarization_angle_{tag}.npy"
+        intensities_file = f"sfig_8_poly_real_intensities_{tag}.npy"
+        ellipticity_file = f"sfig_8_poly_real_ellipticity_{tag}.npy"
+        polarization_angle_file = f"sfig_8_poly_real_polarization_angle_{tag}.npy"
 
         wavelengths_in_um, weights = make_polychromatic(
             oss,
             params,
-            number_of_wavelengths=3,
-            center_retardance=0,
+            number_of_wavelengths=15,
+            center_retardance=12.1,
             half_width_retardance=drhw,
         )
 
@@ -1440,7 +1441,7 @@ def supplementary_figure_ZZ(oss, params, overwrite=False):
         margin=dict(l=70, r=50, t=50, b=70),
     )
     fig.show()
-    fig.write_image("sfig_ZZ.pdf", width=1000, height=500)
+    fig.write_image("sfig_8.pdf", width=1000, height=500)
 
     return results
 
@@ -1456,7 +1457,7 @@ def supplementary_figure_WW(oss, params, overwrite=False):
     # Fixed dichroic dispersion slope (deg/nm), chosen so that 12.5 nm FWHM
     # reproduces the original ±20 deg half-width spread used elsewhere.
     reference_fwhm_in_nm = 12.5
-    reference_half_width_retardance = 20
+    reference_half_width_retardance = 30
     reference_std_in_nm = reference_fwhm_in_nm / (2 * np.sqrt(2 * np.log(2)))
     retardance_slope_per_nm = reference_half_width_retardance / (2 * reference_std_in_nm)
 
@@ -1563,17 +1564,17 @@ if __name__ == "__main__":
     # ================================ #
 
     ## === Figure 2b ================= ##
-    # oss = connect_opticstudio("revised_monochromatic.zmx")
-    # params = load_parameters("fig_2b_params.yaml", oss)
-    # figure_2b(oss, params, overwrite_intensities=False)
-    # oss.save()
+    oss = connect_opticstudio("revised_monochromatic.zmx")
+    params = load_parameters("fig_2b_params.yaml", oss)
+    figure_2b(oss, params, overwrite_intensities=False)
+    oss.save()
     ## =============================== ##
 
     ## === New Figure 4 ============== ##
-    oss = connect_opticstudio("revised_polychromatic.zmx")
-    params = load_parameters("new_fig_4_params.yaml", oss)
-    new_figure_4(oss, params, overwrite=True)
-    oss.save()
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    # params = load_parameters("new_fig_4_params.yaml", oss)
+    # new_figure_4(oss, params, overwrite=False)
+    # oss.save()
     ## =============================== ##
 
     ## === Supplementary Figure XX === ##
@@ -1581,10 +1582,10 @@ if __name__ == "__main__":
     # supplementary_figure_XX(params)
     ## =============================== ##
 
-    ## === Supplementary Figure ZZ === ##
+    ## === Supplementary Figure 8 === ##
     # oss = connect_opticstudio("revised_polychromatic.zmx")
-    # params = load_parameters("sfig_ZZ_params.yaml", oss)
-    # supplementary_figure_ZZ(oss, params, overwrite=False)
+    # params = load_parameters("sfig_8_params.yaml", oss)
+    # supplementary_figure_8(oss, params, overwrite=False)
     # oss.save()
     ## =============================== ##
 
