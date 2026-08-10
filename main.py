@@ -1445,13 +1445,13 @@ def supplementary_figure_8(oss, params, overwrite=False):
 
     return results
 
-def supplementary_figure_WW(oss, params, overwrite=False):
+def supplementary_figure_9(oss, params, overwrite=False):
     # (label, number_of_wavelengths, fwhm_bandwidth_in_nm)
     bandwidth_cases = [
         ("Monochromatic", 1, None),
-        ("2 nm", 3, 2.0),
-        ("12.5 nm", 3, 12.5),
-        ("25 nm", 3, 25.0),
+        ("2 nm", 15, 2.0),
+        ("12.5 nm", 15, 12.5),
+        ("25 nm", 15, 25.0),
     ]
     center_retardance = 12.1
     # Fixed dichroic dispersion slope (deg/nm), chosen so that 12.5 nm FWHM
@@ -1471,9 +1471,9 @@ def supplementary_figure_WW(oss, params, overwrite=False):
 
     for label, n_wavelengths, fwhm in bandwidth_cases:
         tag = label.replace(" ", "").replace(".", "p")
-        intensities_file = f"sfig_WW_poly_real_intensities_{tag}.npy"
-        ellipticity_file = f"sfig_WW_poly_real_ellipticity_{tag}.npy"
-        polarization_angle_file = f"sfig_WW_poly_real_polarization_angle_{tag}.npy"
+        intensities_file = f"sfig_9_poly_real_intensities_{tag}.npy"
+        ellipticity_file = f"sfig_9_poly_real_ellipticity_{tag}.npy"
+        polarization_angle_file = f"sfig_9_poly_real_polarization_angle_{tag}.npy"
 
         if fwhm is None:
             half_width_retardance = 0  # unused (single wavelength -> center_retardance only)
@@ -1551,7 +1551,7 @@ def supplementary_figure_WW(oss, params, overwrite=False):
         margin=dict(l=70, r=50, t=50, b=70),
     )
     fig.show()
-    fig.write_image("sfig_WW.pdf", width=1000, height=500)
+    fig.write_image("sfig_9.pdf", width=1000, height=500)
 
     return results
 
@@ -1564,10 +1564,10 @@ if __name__ == "__main__":
     # ================================ #
 
     ## === Figure 2b ================= ##
-    oss = connect_opticstudio("revised_monochromatic.zmx")
-    params = load_parameters("fig_2b_params.yaml", oss)
-    figure_2b(oss, params, overwrite_intensities=False)
-    oss.save()
+    # oss = connect_opticstudio("revised_monochromatic.zmx")
+    # params = load_parameters("fig_2b_params.yaml", oss)
+    # figure_2b(oss, params, overwrite_intensities=False)
+    # oss.save()
     ## =============================== ##
 
     ## === New Figure 4 ============== ##
@@ -1589,9 +1589,9 @@ if __name__ == "__main__":
     # oss.save()
     ## =============================== ##
 
-    ## === Supplementary Figure WW === ##
-    # oss = connect_opticstudio("revised_polychromatic.zmx")
-    # params = load_parameters("sfig_WW_params.yaml", oss)
-    # supplementary_figure_WW(oss, params, overwrite=False)
-    # oss.save()
+    ## === Supplementary Figure 9 === ##
+    oss = connect_opticstudio("revised_polychromatic.zmx")
+    params = load_parameters("sfig_9_params.yaml", oss)
+    supplementary_figure_9(oss, params, overwrite=False)
+    oss.save()
     ## =============================== ##
