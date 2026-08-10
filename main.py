@@ -211,7 +211,7 @@ def print_single_map_fit_results(results: SimulationSingleMapResults):
     for line in lines:
         print(line)
 
-    with open("tab_XX.txt", "a") as f:
+    with open("tab_1.txt", "a") as f:
         f.write("\n".join(lines) + "\n")
 
 def print_multi_map_fit_results(results_list, print_single_runs=False):
@@ -249,7 +249,7 @@ def print_multi_map_fit_results(results_list, print_single_runs=False):
     for line in lines:
         print(line)
 
-    with open("tab_XX.txt", "a") as f:
+    with open("tab_1.txt", "a") as f:
         f.write("\n".join(lines) + "\n")
 
     if print_single_runs:
@@ -723,12 +723,12 @@ def figure_2b(oss, params, overwrite_intensities=True):
     fig.show()
     fig.write_image("revised_fig_2b.pdf", width=500, height=400)
 
-def supplementary_figure_XX(params, overwrite=False):
+def supplementary_figure_7(params, overwrite=False):
     hwp_angles, qwp_angles, pol_angles, _ = create_angle_arrays(params["hqp_size"])
     
     # This is intended to work if the nominal number of wavelengths is 31!
     # Original data is real waveplates and dichroic retardance 12.1-20:12.1+20deg, 880nm center wavelength, 12.5nm FWHM bandwidth
-    if overwrite or not os.path.exists("sfig_XX_ellipticity_maps.npy"):
+    if overwrite or not os.path.exists("sfig_7_ellipticity_maps.npy"):
         intensities = np.load("hwp_qwp_polychromatic_intensities_31w.npy")
         weights = np.load("hwp_qwp_polychromatic_intensities_31w_weights.npy")
 
@@ -763,11 +763,11 @@ def supplementary_figure_XX(params, overwrite=False):
                     ellipticity_maps[ha_ind, qa_ind, map_ind] = el
                     polarization_angle_maps[ha_ind, qa_ind, map_ind] = aa
 
-        np.save("sfig_XX_ellipticity_maps.npy", ellipticity_maps)
-        np.save("sfig_XX_polarization_angle_maps.npy", polarization_angle_maps)
+        np.save("sfig_7_ellipticity_maps.npy", ellipticity_maps)
+        np.save("sfig_7_polarization_angle_maps.npy", polarization_angle_maps)
     else:
-        ellipticity_maps = np.load("sfig_XX_ellipticity_maps.npy")
-        polarization_angle_maps = np.load("sfig_XX_polarization_angle_maps.npy")
+        ellipticity_maps = np.load("sfig_7_ellipticity_maps.npy")
+        polarization_angle_maps = np.load("sfig_7_polarization_angle_maps.npy")
 
     # RMSE relative to full polychromatic (31 wavelengths)
     reference = ellipticity_maps[:, :, 4]
@@ -867,7 +867,7 @@ def supplementary_figure_XX(params, overwrite=False):
         ),
     )
     fig.show()
-    fig.write_image("sfig_XX.pdf", width=1000, height=1200)
+    fig.write_image("sfig_7.pdf", width=1000, height=1200)
 
 def plot_ellipticity_comparison(
     qwp_angles,
@@ -1295,7 +1295,7 @@ def new_figure_4(oss, params, overwrite=False):
     fig.show()
     fig.write_image("fig_4.pdf", width=1000, height=fig.layout.height)
 
-def new_table_XX(oss, params):
+def new_table_1(oss, params):
     n_runs = 5
     gt_before = GroundTruthConfig(
         theta_0=GroundTruthParam(mode="fixed", value=18),
@@ -1399,7 +1399,7 @@ def supplementary_figure_8(oss, params, overwrite=False):
 
         results.append(dict(half_width_retardance=drhw, p_min_aa=p_min_aa_deg, p_min_el=p_min_el))
 
-    # === Plotting: stacked ellipticity profiles, styled like sfig_XX panel B === #
+    # === Plotting: stacked ellipticity profiles, styled like sfig_7 panel B === #
     selected_colors = ["black", COLORS[5] + ", 1)", COLORS[2] + ", 1)", COLORS[6] + ", 1)",
                        COLORS[4] + ", 1)", COLORS[0] + ", 1)", COLORS[1] + ", 1)"]
     selected_dashes = ["dot", "dashdot", "longdash", "solid", "dash", "dashdot", "dot"]
@@ -1512,7 +1512,7 @@ def supplementary_figure_9(oss, params, overwrite=False):
 
         results.append(dict(label=label, p_min_aa=p_min_aa_deg, p_min_el=p_min_el))
 
-    # === Plotting: stacked ellipticity profiles, styled like sfig_XX panel B === #
+    # === Plotting: stacked ellipticity profiles, styled like sfig_7 panel B === #
     selected_colors = ["black", COLORS[2] + ", 1)", COLORS[1] + ", 1)", COLORS[5] + ", 1)"]
     selected_dashes = ["dot", "longdash", "solid", "dashdot"]
 
@@ -1556,10 +1556,10 @@ def supplementary_figure_9(oss, params, overwrite=False):
     return results
 
 if __name__ == "__main__":
-    # === Table XX =================== #
+    # === Table 1 =================== #
     # oss = connect_opticstudio("revised_monochromatic.zmx")
-    # params = load_parameters("tab_XX.yaml", oss)
-    # new_table_XX(oss, params)
+    # params = load_parameters("tab_1.yaml", oss)
+    # new_table_1(oss, params)
     # oss.save()
     # ================================ #
 
@@ -1577,9 +1577,9 @@ if __name__ == "__main__":
     # oss.save()
     ## =============================== ##
 
-    ## === Supplementary Figure XX === ##
-    # params = load_parameters("sfig_XX_params.yaml")
-    # supplementary_figure_XX(params)
+    ## === Supplementary Figure 7 === ##
+    params = load_parameters("sfig_7_params.yaml")
+    supplementary_figure_7(params)
     ## =============================== ##
 
     ## === Supplementary Figure 8 === ##
@@ -1590,8 +1590,8 @@ if __name__ == "__main__":
     ## =============================== ##
 
     ## === Supplementary Figure 9 === ##
-    oss = connect_opticstudio("revised_polychromatic.zmx")
-    params = load_parameters("sfig_9_params.yaml", oss)
-    supplementary_figure_9(oss, params, overwrite=False)
-    oss.save()
+    # oss = connect_opticstudio("revised_polychromatic.zmx")
+    # params = load_parameters("sfig_9_params.yaml", oss)
+    # supplementary_figure_9(oss, params, overwrite=False)
+    # oss.save()
     ## =============================== ##
